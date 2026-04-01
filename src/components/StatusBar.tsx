@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { DeployBadge } from './DeployBadge';
 import { PRODUCT_BY_ID } from '../data/products';
 import { useWizardStore } from '../store/useWizardStore';
 import { getGraphicSurfaceSizeCm } from '../utils/graphics';
@@ -46,10 +47,15 @@ export const StatusBar = () => {
 
   return (
     <div className="statusbar">
-      <span>Frames: {frameCount}</span>
-      <span>Support bars: {supportBarsUsed}</span>
-      <span>Graphics: {graphicsAreaM2.toFixed(2)} m2</span>
-      <span>Total: {totalPriceEur.toFixed(2)} EUR</span>
+      <div className="statusbar__left">
+        <DeployBadge />
+        <span className="statusbar__frames">Frames: {frameCount}</span>
+      </div>
+      <div className="statusbar__metrics">
+        <span>Support bars: {supportBarsUsed}</span>
+        <span>Graphics: {graphicsAreaM2.toFixed(2)} m2</span>
+        <span>Total: {totalPriceEur.toFixed(2)} EUR</span>
+      </div>
     </div>
   );
 };
