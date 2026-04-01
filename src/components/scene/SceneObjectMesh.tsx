@@ -1,6 +1,8 @@
-import { Edges } from '@react-three/drei';
-import { Fragment } from 'react';
+import { Edges, useTexture } from '@react-three/drei';
+import { Fragment, useMemo } from 'react';
+import { ClampToEdgeWrapping, SRGBColorSpace } from 'three';
 import { PRODUCT_BY_ID } from '../../data/products';
+import { useWizardStore } from '../../store/useWizardStore';
 import { LOCKED_OPACITY } from '../../utils/constants';
 import type { SceneObject } from '../../types';
 
@@ -8,8 +10,9 @@ interface Props {
   object: SceneObject;
   selected: boolean;
   locked: boolean;
-  onPointerDown: () => void;
-  onContextMenu: () => void;
+  onPointerDown: (event: any) => void;
+  onPointerUp?: (event: any) => void;
+  onContextMenu: (event: any) => void;
 }
 
 export const SceneObjectMesh = ({
@@ -17,12 +20,47 @@ export const SceneObjectMesh = ({
   selected,
   locked,
   onPointerDown,
+  onPointerUp,
   onContextMenu,
 }: Props) => {
   const product = PRODUCT_BY_ID[object.productId];
   const isFrameCounter = product.category === 'frame-counter';
   const isShelf = product.category === 'shelf';
+  const isCounterLike = ['counter', 'frame-counter'].includes(product.category);
+  const isStorageLike = ['storage', 'closet'].includes(product.category);
+  const isArch = product.category === 'arch';
   const opacity = locked ? LOCKED_OPACITY : 1;
+  const frameGraphic = useWizardStore((s) => s.frameGraphics[object.instanceId]);
+  const graphicUrl = useWizardStore((s) =>
+    frameGraphic ? s.graphicsAssets[frameGraphic.assetId] : undefined,
+  );
+  const sourceTexture = useTexture(graphicUrl || '/icons.svg');
+  const graphicTexture = useMemo(() => {
+    if (!graphicUrl || !frameGraphic) return null;
+    const tex = sourceTexture.clone();
+    tex.wrapS = ClampToEdgeWrapping;
+    tex.wrapT = ClampToEdgeWrapping;
+    const uSize = Math.max(0.001, frameGraphic.crop.u1 - frameGraphic.crop.u0);
+    const vSize = Math.max(0.001, frameGraphic.crop.v1 - frameGraphic.crop.v0);
+    // Crop is stored in canvas-top coordinates. Convert to texture UV space (bottom-origin).
+    tex.repeat.set(uSize, vSize);
+    tex.offset.set(frameGraphic.crop.u0, 1 - frameGraphic.crop.v1);
+    tex.colorSpace = SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }, [frameGraphic, graphicUrl, sourceTexture]);
+  const baseFrameProduct = PRODUCT_BY_ID['frame-96'];
+  const topBarThickness = 4;
+  const archTopY = baseFrameProduct.dimensions.height / 2 - topBarThickness / 2;
+  const shelfColor = object.options?.shelfColor ?? 'white';
+  const shelfColorHex =
+    shelfColor === 'black' ? '#212121' : shelfColor === 'wood' ? '#8D6E63' : product.color;
+  const countertopColor = object.options?.countertopColor ?? 'wood';
+  const countertopColorHex =
+    countertopColor === 'black' ? '#212121' : countertopColor === 'white' ? '#ECEFF1' : '#8D6E63';
+  const hasCounterUsb = object.options?.countertopUsb ?? true;
+  const hasStorageDoor = object.options?.storageHasDoor ?? true;
+  const accentSurfaceOffset = 0.35;
 
   return (
     <group
@@ -30,35 +68,179 @@ export const SceneObjectMesh = ({
       rotation={[0, object.rotation, 0]}
       onPointerDown={(e) => {
         e.stopPropagation();
-        if (e.button === 0) onPointerDown();
+        if (e.button === 0) onPointerDown(e);
       }}
       onContextMenu={(e) => {
         e.stopPropagation();
         e.nativeEvent.preventDefault();
-        onContextMenu();
+        onContextMenu(e);
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        onPointerUp?.(e);
       }}
     >
-      <mesh>
-        <boxGeometry args={[product.dimensions.width, product.dimensions.height, product.dimensions.depth]} />
-        <meshStandardMaterial color={product.color} transparent opacity={opacity} />
-        {selected && <Edges color="#2196F3" />}
-      </mesh>
+      {!isArch ? (
+        <mesh>
+          <boxGeometry args={[product.dimensions.width, product.dimensions.height, product.dimensions.depth]} />
+          <meshStandardMaterial
+            color={isShelf ? shelfColorHex : product.color}
+            transparent
+            opacity={opacity}
+            emissive={selected ? '#26C6DA' : '#000000'}
+            emissiveIntensity={selected ? 0.22 : 0}
+          />
+          {selected && <Edges color="#00E5FF" />}
+        </mesh>
+      ) : (
+        <mesh>
+          <boxGeometry
+            args={[
+              baseFrameProduct.dimensions.width,
+              baseFrameProduct.dimensions.height,
+              baseFrameProduct.dimensions.depth,
+            ]}
+          />
+          <meshStandardMaterial transparent opacity={0} />
+          {selected && <Edges color="#00E5FF" />}
+        </mesh>
+      )}
 
-      {product.accentColor && !isShelf && (
-        <mesh position={[0, 0, product.dimensions.depth / 2 + 0.2]}>
+      {isArch && (
+        <Fragment>
+          {/* Standard vertical frame body */}
+          <mesh>
+            <boxGeometry
+              args={[
+                baseFrameProduct.dimensions.width,
+                baseFrameProduct.dimensions.height,
+                baseFrameProduct.dimensions.depth,
+              ]}
+            />
+            <meshStandardMaterial color={baseFrameProduct.color} transparent opacity={opacity} />
+          </mesh>
+          <mesh
+            position={[0, 0, baseFrameProduct.dimensions.depth / 2 + accentSurfaceOffset]}
+            renderOrder={2}
+          >
+            <planeGeometry
+              args={[baseFrameProduct.dimensions.width * 0.9, baseFrameProduct.dimensions.height * 0.9]}
+            />
+            {graphicTexture ? (
+              <meshBasicMaterial
+                color="#ffffff"
+                map={graphicTexture}
+                toneMapped={false}
+                polygonOffset
+                polygonOffsetFactor={-2}
+                polygonOffsetUnits={-2}
+              />
+            ) : (
+              <meshStandardMaterial
+                color={baseFrameProduct.accentColor}
+                transparent
+                opacity={opacity}
+                polygonOffset
+                polygonOffsetFactor={-2}
+                polygonOffsetUnits={-2}
+              />
+            )}
+          </mesh>
+          {[-baseFrameProduct.dimensions.width / 3, 0, baseFrameProduct.dimensions.width / 3].map((x) => (
+            <mesh key={x} position={[x, 0, baseFrameProduct.dimensions.depth / 2 + 0.4]}>
+              <boxGeometry args={[0.7, baseFrameProduct.dimensions.height * 0.95, 0.7]} />
+              <meshStandardMaterial color="#37474F" transparent opacity={opacity} />
+            </mesh>
+          ))}
+
+          {/* Top horizontal frame extension (forms arch with another vertical frame) */}
+          <mesh position={[0, archTopY, product.dimensions.depth]}>
+            <boxGeometry args={[product.dimensions.width, topBarThickness, topBarThickness]} />
+            <meshStandardMaterial color="#8E9AA1" transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[0, archTopY, 0]}>
+            <boxGeometry args={[product.dimensions.width, topBarThickness, topBarThickness]} />
+            <meshStandardMaterial color="#8E9AA1" transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[product.dimensions.width / 2, archTopY, product.dimensions.depth / 2]}>
+            <boxGeometry args={[topBarThickness, topBarThickness, product.dimensions.depth]} />
+            <meshStandardMaterial color="#8E9AA1" transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[-product.dimensions.width / 2, archTopY, product.dimensions.depth / 2]}>
+            <boxGeometry args={[topBarThickness, topBarThickness, product.dimensions.depth]} />
+            <meshStandardMaterial color="#8E9AA1" transparent opacity={opacity} />
+          </mesh>
+        </Fragment>
+      )}
+
+      {product.accentColor && !isShelf && !isArch && (
+        <mesh
+          position={[0, 0, product.dimensions.depth / 2 + accentSurfaceOffset]}
+          renderOrder={2}
+        >
           <planeGeometry args={[product.dimensions.width * 0.9, product.dimensions.height * 0.9]} />
-          <meshStandardMaterial color={product.accentColor} transparent opacity={opacity} />
+          {graphicTexture ? (
+            <meshBasicMaterial
+              color="#ffffff"
+              map={graphicTexture}
+              toneMapped={false}
+              polygonOffset
+              polygonOffsetFactor={-2}
+              polygonOffsetUnits={-2}
+            />
+          ) : (
+            <meshStandardMaterial
+              color={product.accentColor}
+              transparent
+              opacity={opacity}
+              emissive={selected ? '#26C6DA' : '#000000'}
+              emissiveIntensity={selected ? 0.18 : 0}
+              polygonOffset
+              polygonOffsetFactor={-2}
+              polygonOffsetUnits={-2}
+            />
+          )}
         </mesh>
       )}
 
       {isFrameCounter && (
-        <mesh position={[0, 100 - product.dimensions.height / 2, 18]}>
-          <boxGeometry args={[96, 3, 40]} />
-          <meshStandardMaterial color="#8D6E63" transparent opacity={opacity} />
+        <group>
+          <mesh position={[0, 100 - product.dimensions.height / 2, 18]}>
+            <boxGeometry args={[96, 3, 40]} />
+            <meshStandardMaterial color={countertopColorHex} transparent opacity={opacity} />
+          </mesh>
+          {hasCounterUsb && (
+            <mesh position={[36, 100 - product.dimensions.height / 2 + 2.1, 2]}>
+              <boxGeometry args={[6, 1.2, 3]} />
+              <meshStandardMaterial color="#263238" transparent opacity={opacity} />
+            </mesh>
+          )}
+        </group>
+      )}
+
+      {isCounterLike && !isFrameCounter && (
+        <group>
+          <mesh position={[0, product.dimensions.height / 2 - 1.5, 0]}>
+            <boxGeometry args={[product.dimensions.width, 3, product.dimensions.depth]} />
+            <meshStandardMaterial color={countertopColorHex} transparent opacity={opacity} />
+          </mesh>
+          {hasCounterUsb && (
+            <mesh position={[product.dimensions.width / 2 - 8, product.dimensions.height / 2 + 0.6, 0]}>
+              <boxGeometry args={[6, 1.2, 3]} />
+              <meshStandardMaterial color="#263238" transparent opacity={opacity} />
+            </mesh>
+          )}
+        </group>
+      )}
+
+      {isStorageLike && hasStorageDoor && (
+        <mesh position={[0, 0, product.dimensions.depth / 2 + 0.8]}>
+          <planeGeometry args={[product.dimensions.width * 0.6, product.dimensions.height * 0.75]} />
+          <meshStandardMaterial color="#CFD8DC" transparent opacity={opacity * 0.95} />
         </mesh>
       )}
 
-      {product.hasSupportBars && (
+      {product.hasSupportBars && !isArch && (
         <Fragment>
           {[-product.dimensions.width / 3, 0, product.dimensions.width / 3].map((x) => (
             <mesh

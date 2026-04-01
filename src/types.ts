@@ -1,8 +1,9 @@
-export type WizardStep = 1 | 2;
+export type WizardStep = 1 | 2 | 3;
 
 export type ProductCategory =
   | 'frame'
   | 'frame-counter'
+  | 'arch'
   | 'counter'
   | 'storage'
   | 'closet'
@@ -14,6 +15,8 @@ export interface Product {
   category: ProductCategory;
   step: WizardStep;
   dimensions: { width: number; height: number; depth: number };
+  priceEur: number;
+  weightKg: number;
   color: string;
   accentColor?: string;
   hasSupportBars?: boolean;
@@ -29,4 +32,17 @@ export interface SceneObject {
   rotation: number;
   attachedToFrameId?: string;
   shelfSlotIndex?: number;
+  options?: {
+    shelfColor?: 'white' | 'black' | 'wood';
+    countertopColor?: 'white' | 'black' | 'wood';
+    countertopUsb?: boolean;
+    storageHasDoor?: boolean;
+  };
+}
+
+export interface GraphicCrop {
+  u0: number;
+  v0: number;
+  u1: number;
+  v1: number;
 }

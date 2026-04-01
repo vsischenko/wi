@@ -6,6 +6,8 @@ export const Toolbar = () => {
   const clearScene = useWizardStore((s) => s.clearScene);
   const canUndo = useWizardStore((s) => s.canUndo);
   const canRedo = useWizardStore((s) => s.canRedo);
+  const portModeEnabled = useWizardStore((s) => s.portModeEnabled);
+  const togglePortMode = useWizardStore((s) => s.togglePortMode);
 
   return (
     <div className="toolbar">
@@ -16,6 +18,9 @@ export const Toolbar = () => {
         Redo
       </button>
       <button onClick={clearScene}>Clear</button>
+      <button onClick={togglePortMode}>
+        Port mode: {portModeEnabled ? 'ON' : 'OFF'}
+      </button>
     </div>
   );
 };
