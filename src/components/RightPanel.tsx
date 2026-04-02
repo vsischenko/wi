@@ -683,15 +683,15 @@ export const RightPanel = () => {
             </div>
           </div>
         )}
-
-        {draggedProductId && (
-          <div className="placement-hint">
-            {currentStep === 2
-              ? 'Placement mode: click a free green slot on any compatible frame. Esc exits.'
-              : 'Placement mode is active. Click on scene to place product. Right-click rotates ghost by 90 degrees. Del removes last placed object. Esc exits placement mode.'}
-          </div>
-        )}
       </div>
+
+      {draggedProductId && (
+        <div className="placement-hint" role="status">
+          {currentStep === 2
+            ? 'Placement mode: click a free green slot on any compatible frame. Esc exits.'
+            : 'Placement mode is active. Click on scene to place product. Right-click rotates ghost by 90 degrees. Del removes last placed object. Esc exits placement mode.'}
+        </div>
+      )}
 
       <div className="estimate-toggle-row">
         <button onClick={() => setEstimateHidden((v) => !v)}>

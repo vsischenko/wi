@@ -203,6 +203,7 @@ body,
 
 .right-panel > .step-card,
 .right-panel > .warning,
+.right-panel > .placement-hint,
 .right-panel > .estimate-toggle-row,
 .right-panel > .price-summary {
   flex-shrink: 0;
@@ -310,6 +311,8 @@ body,
   border-radius: 8px;
   padding: 10px;
   background: #fafcfd;
+  position: relative;
+  z-index: 0;
 }
 
 .booth-section__title {
@@ -554,6 +557,13 @@ body,
   gap: 8px;
 }
 
+/* Inside booth sections, let the outer panel scroll — avoid nested clipping/overlap with hint bar. */
+.booth-section .product-list {
+  flex: 0 1 auto;
+  overflow: visible;
+  min-height: 0;
+}
+
 .catalog-tabs {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -676,7 +686,9 @@ body,
   border: 1px solid #90caf9;
   background: #e3f2fd;
   border-radius: 6px;
-  padding: 8px;
+  padding: 8px 10px;
+  line-height: 1.35;
+  margin: 0;
 }
 
 .graphics-step-panel {
@@ -688,6 +700,13 @@ body,
   padding: 10px;
   display: grid;
   gap: 8px;
+}
+
+/* Step 2 booth: use column flex so sections stack predictably (grid was overriding .booth-step). */
+.graphics-step-panel.booth-step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 /* Step 3 panel can grow within the scroll area; no forced flex stretch */
