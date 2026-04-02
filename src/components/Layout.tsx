@@ -12,27 +12,29 @@ export const Layout = () => {
   return (
     <div className="app-shell">
       <Toolbar />
-      <main className="workspace">
-        <div className="viewports">
-          <div className="viewport-switcher">
-            <button
-              className={activeViewport === '3d' ? 'active' : ''}
-              onClick={() => setActiveViewport('3d')}
-            >
-              3D View
-            </button>
-            <button
-              className={activeViewport === '2d' ? 'active' : ''}
-              onClick={() => setActiveViewport('2d')}
-            >
-              2D Top View
-            </button>
+      <div className="app-content">
+        <main className="workspace">
+          <div className="viewports">
+            <div className="viewport-switcher">
+              <button
+                className={activeViewport === '3d' ? 'active' : ''}
+                onClick={() => setActiveViewport('3d')}
+              >
+                3D View
+              </button>
+              <button
+                className={activeViewport === '2d' ? 'active' : ''}
+                onClick={() => setActiveViewport('2d')}
+              >
+                2D Top View
+              </button>
+            </div>
+            {activeViewport === '3d' ? <View3DCanvas /> : <TopViewCanvas />}
           </div>
-          {activeViewport === '3d' ? <View3DCanvas /> : <TopViewCanvas />}
-        </div>
-        <RightPanel />
-      </main>
-      <StatusBar />
+          <RightPanel />
+        </main>
+        <StatusBar />
+      </div>
       <ModelContextMenu />
     </div>
   );
