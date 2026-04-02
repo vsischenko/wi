@@ -864,11 +864,19 @@ export const RightPanel = () => {
             </section>
           </div>
         ) : (
-          <div className="graphics-step-panel">
+          <div className="graphics-step-panel graphics-step-panel--dressing">
             <div className="graphics-step-help">
               Products on scene with printable visuals. Click to select one; Ctrl+click to multi-select.
             </div>
             <div className="graphics-step-meta">Selected visual: {selectedGraphicFrameIds.length}</div>
+            <div className="graphics-step-actions">
+              <button onClick={() => setGraphicsModalOpen(true)} disabled={selectedGraphicFrameIds.length === 0}>
+                Open Graphics Editor
+              </button>
+              <button onClick={clearGraphicFrameSelection} disabled={selectedGraphicFrameIds.length === 0}>
+                Clear Selection
+              </button>
+            </div>
             <div className="dressing-visual-list">
               {dressingVisualProducts.length === 0 ? (
                 <div className="installed-empty">
@@ -906,14 +914,6 @@ export const RightPanel = () => {
                   );
                 })
               )}
-            </div>
-            <div className="graphics-step-actions">
-              <button onClick={() => setGraphicsModalOpen(true)} disabled={selectedGraphicFrameIds.length === 0}>
-                Open Graphics Editor
-              </button>
-              <button onClick={clearGraphicFrameSelection} disabled={selectedGraphicFrameIds.length === 0}>
-                Clear Selection
-              </button>
             </div>
           </div>
         )}

@@ -758,9 +758,13 @@ body,
   gap: 14px;
 }
 
-/* Step 3 panel can grow within the scroll area; no forced flex stretch */
-.right-panel-content > .graphics-step-panel:not(.booth-step) {
-  flex: 1 1 auto;
+/* Step 3 (Dressing): hug content at top — avoid empty flex gap and stretched action buttons */
+.right-panel-content > .graphics-step-panel.graphics-step-panel--dressing {
+  flex: 0 0 auto;
+}
+
+.graphics-step-panel.graphics-step-panel--dressing {
+  align-content: start;
 }
 
 .graphics-step-help {
@@ -776,6 +780,8 @@ body,
 
 .graphics-step-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
@@ -785,6 +791,16 @@ body,
   border-radius: 6px;
   padding: 6px 10px;
   cursor: pointer;
+}
+
+.graphics-step-panel--dressing .graphics-step-actions button {
+  flex: 1 1 auto;
+  min-width: min(100%, 140px);
+  max-height: 100px;
+  min-height: 36px;
+  padding: 8px 12px;
+  line-height: 1.25;
+  align-self: center;
 }
 
 .graphics-step-actions button:disabled {
