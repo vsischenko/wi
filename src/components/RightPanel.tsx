@@ -176,31 +176,25 @@ export const RightPanel = () => {
     () => (selectedObjectId ? sceneObjects.find((obj) => obj.instanceId === selectedObjectId) ?? null : null),
     [sceneObjects, selectedObjectId],
   );
-  const selectedFrameObject = useMemo(() => {
+  /** Frame 96 / frame-counter whose group should highlight (selected frame or parent of selected slot item). */
+  const activeInstallFrameId = useMemo(() => {
     if (currentStep !== 2 || !selectedObjectId) return null;
     const target = sceneObjects.find((obj) => obj.instanceId === selectedObjectId);
     if (!target) return null;
-    if (target.attachedToFrameId) {
-      return sceneObjects.find((obj) => obj.instanceId === target.attachedToFrameId) ?? null;
-    }
-    return ['frame-96', 'frame-counter-96'].includes(target.productId) ? target : null;
+    if (target.attachedToFrameId) return target.attachedToFrameId;
+    if (['frame-96', 'frame-counter-96'].includes(target.productId)) return target.instanceId;
+    return null;
   }, [currentStep, sceneObjects, selectedObjectId]);
-  const installedSlotItems = useMemo(
-    () =>
-      selectedFrameObject
-        ? sceneObjects.filter(
-            (obj) =>
-              obj.attachedToFrameId === selectedFrameObject.instanceId &&
-              isFrameSlotProductId(obj.productId),
-          )
-        : [],
-    [sceneObjects, selectedFrameObject],
-  );
-  const selectedFrameOccupiedSlots = useMemo(
-    () =>
-      selectedFrameObject ? getOccupiedSlots(selectedFrameObject.instanceId, 'front-face') : [],
-    [getOccupiedSlots, selectedFrameObject],
-  );
+  const installationsByFrame = useMemo(() => {
+    if (currentStep !== 2) return [];
+    return frames.map((frame) => ({
+      frame,
+      items: sceneObjects.filter(
+        (obj) =>
+          obj.attachedToFrameId === frame.instanceId && isFrameSlotProductId(obj.productId),
+      ),
+    }));
+  }, [currentStep, frames, sceneObjects]);
   const selectedMakeItNicerEditObject = useMemo(() => {
     if (currentStep !== 2 || !selectedObject) return null;
     const cat = PRODUCT_BY_ID[selectedObject.productId].category;
@@ -476,42 +470,8 @@ export const RightPanel = () => {
             <section className="booth-section">
               <div className="booth-section__title">Nice to have</div>
               <p className="booth-section__intro">
-                Shelves, display, brochure holders. Select a frame on the scene to inspect what is installed on it.
+                Shelves, displays, brochure holders. Pick a product, then a green slot on a compatible frame.
               </p>
-              {selectedFrameObject ? (
-                <>
-                  <div className="graphics-step-help">
-                    Frame: <strong>{PRODUCT_BY_ID[selectedFrameObject.productId].name}</strong>. Slots used:{' '}
-                    {selectedFrameOccupiedSlots.length}/3
-                  </div>
-                  <div className="installed-list">
-                    <div className="installed-title">Installed on this frame</div>
-                    {installedSlotItems.length === 0 ? (
-                      <div className="installed-empty">Nothing attached yet.</div>
-                    ) : (
-                      installedSlotItems.map((item) => (
-                        <button
-                          key={item.instanceId}
-                          className={`installed-item ${selectedObjectId === item.instanceId ? 'active' : ''}`}
-                          onClick={() => selectObject(item.instanceId)}
-                        >
-                          <span>{PRODUCT_BY_ID[item.productId].name}</span>
-                          {PRODUCT_BY_ID[item.productId].category === 'shelf' ? (
-                            <span>{shelfColorLabel(item.options?.shelfColor)}</span>
-                          ) : (
-                            <span>—</span>
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="graphics-step-help">
-                  Click a <strong>Frame 96</strong> or <strong>Frame Counter 96</strong> to see attachments for that
-                  wall.
-                </div>
-              )}
               <div className="product-list product-list--compact">
                 {niceProducts.map((product) => (
                   <button
@@ -652,6 +612,60 @@ export const RightPanel = () => {
                   )}
               </section>
             )}
+
+            <section className="booth-section booth-section--installed-summary">
+              <div className="booth-section__title">Installed on frames</div>
+              <p className="booth-section__intro">
+                Grouped by wall. Click an accessory to select it — use <strong>Selected item options</strong> above for
+                colors and removal.
+              </p>
+              {installationsByFrame.length === 0 ? (
+                <div className="installed-empty">Add a Frame 96 or Frame Counter 96 in step 1 first.</div>
+              ) : (
+                installationsByFrame.map(({ frame, items }) => {
+                  const frontUsed = getOccupiedSlots(frame.instanceId, 'front-face').length;
+                  const topUsed = getOccupiedSlots(frame.instanceId, 'top-edge').length;
+                  return (
+                    <div
+                      key={frame.instanceId}
+                      className={`frame-install-group${
+                        activeInstallFrameId === frame.instanceId ? ' frame-install-group--active' : ''
+                      }`}
+                    >
+                      <div className="frame-install-group__header">
+                        <span className="frame-install-group__name">
+                          {PRODUCT_BY_ID[frame.productId].name}
+                        </span>
+                        <span className="frame-install-group__slots">
+                          Front {frontUsed}/3 · Top {topUsed}
+                        </span>
+                      </div>
+                      {items.length === 0 ? (
+                        <div className="installed-empty frame-install-group__empty">Nothing on this frame yet.</div>
+                      ) : (
+                        <div className="installed-list frame-install-group__list">
+                          {items.map((item) => (
+                            <button
+                              key={item.instanceId}
+                              type="button"
+                              className={`installed-item ${selectedObjectId === item.instanceId ? 'active' : ''}`}
+                              onClick={() => selectObject(item.instanceId)}
+                            >
+                              <span>{PRODUCT_BY_ID[item.productId].name}</span>
+                              {PRODUCT_BY_ID[item.productId].category === 'shelf' ? (
+                                <span>{shelfColorLabel(item.options?.shelfColor)}</span>
+                              ) : (
+                                <span>—</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </section>
           </div>
         ) : (
           <div className="graphics-step-panel">

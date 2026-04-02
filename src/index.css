@@ -328,6 +328,58 @@ body,
   line-height: 1.4;
 }
 
+.booth-section--installed-summary {
+  background: #f3f6fa;
+  border-color: #c5d4e0;
+}
+
+.frame-install-group {
+  border: 1px solid #d8e0e8;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 10px;
+  background: #fff;
+}
+
+.frame-install-group:last-child {
+  margin-bottom: 0;
+}
+
+.frame-install-group--active {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 1px rgba(25, 118, 210, 0.2);
+}
+
+.frame-install-group__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.frame-install-group__name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1b3b52;
+}
+
+.frame-install-group__slots {
+  font-size: 11px;
+  font-weight: 600;
+  color: #607d8b;
+}
+
+.frame-install-group__empty {
+  margin: 0;
+  padding: 4px 0;
+}
+
+.frame-install-group__list {
+  margin: 0;
+}
+
 .booth-must-block {
   margin-bottom: 12px;
 }
