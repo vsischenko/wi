@@ -280,8 +280,29 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         return;
       }
     } else {
-      const occupied = get().getOccupiedSlots(frameId, 'front-face');
-      if (occupied.includes(slotIndex)) return;
+      // Front-face items are stacked vertically by slot index.
+      // If their vertical spans overlap (e.g. TV overlaps shelf slots),
+      // we must block both: installation AND placeholder rendering.
+      const candidateY = GHOST_SHELF_POSITIONS[slotIndex];
+      const candidateHalfH = slotProduct.dimensions.height / 2;
+      const EPS_Y = 0.01;
+
+      const conflicts = sceneNow
+        .filter(
+          (obj) =>
+            obj.attachedToFrameId === frameId &&
+            typeof obj.shelfSlotIndex === 'number' &&
+            getFrameAttachMode(obj.productId) === 'front-face',
+        )
+        .some((obj) => {
+          const existingY =
+            GHOST_SHELF_POSITIONS[obj.shelfSlotIndex as number] ?? obj.position[1];
+          const existing = PRODUCT_BY_ID[obj.productId];
+          const existingHalfH = existing.dimensions.height / 2;
+          return Math.abs(candidateY - existingY) < candidateHalfH + existingHalfH + EPS_Y;
+        });
+
+      if (conflicts) return;
     }
 
     let position: [number, number, number];

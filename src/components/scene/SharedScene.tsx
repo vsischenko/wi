@@ -299,9 +299,25 @@ export const SharedScene = ({
               });
             }
 
-            const occupied = getOccupiedSlots(frame.instanceId, 'front-face');
+            const candidateHalfH = dragProduct.dimensions.height / 2;
+            const EPS_Y = 0.01;
+            const existingFrontFaceItems = sceneObjects.filter(
+              (obj) =>
+                obj.attachedToFrameId === frame.instanceId &&
+                typeof obj.shelfSlotIndex === 'number' &&
+                getFrameAttachMode(obj.productId) === 'front-face',
+            );
+
             return GHOST_SHELF_POSITIONS.map((slotY, slotIndex) => {
-              const slotTaken = occupied.includes(slotIndex);
+              // Slot is blocked if the vertical spans overlap with any existing front-face item.
+              const slotTaken = existingFrontFaceItems.some((obj) => {
+                const existingY =
+                  GHOST_SHELF_POSITIONS[obj.shelfSlotIndex as number] ?? obj.position[1];
+                const existing = PRODUCT_BY_ID[obj.productId];
+                const existingHalfH = existing.dimensions.height / 2;
+                return Math.abs(slotY - existingY) < candidateHalfH + existingHalfH + EPS_Y;
+              });
+              if (slotTaken) return null;
               const slotDepth = dragProduct.dimensions.depth;
               const frameFrontOffset =
                 frameProduct.dimensions.depth / 2 + dragProduct.dimensions.depth / 2;
