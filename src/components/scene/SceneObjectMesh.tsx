@@ -34,6 +34,8 @@ export const SceneObjectMesh = ({
     (object.productId === 'light-led-strip-96' || object.productId === 'light-spot-mini');
   const isTvAnimated = ['tv-19', 'tv-96-16x9'].includes(object.productId);
   const isTvInstalled = isTvAnimated && !!object.attachedToFrameId;
+  const tvMuted = object.options?.tvMuted ?? true;
+  const tvVolume = Math.max(0, Math.min(1, object.options?.tvVolume ?? 0.6));
   const tvMeshRef = useRef<Mesh>(null);
   const tvVideoElRef = useRef<HTMLVideoElement | null>(null);
   const [tvVideoTexture, setTvVideoTexture] = useState<VideoTexture | null>(null);
@@ -48,7 +50,8 @@ export const SceneObjectMesh = ({
     const video = document.createElement('video');
     video.src = '/media/tv-loop.mp4';
     video.loop = true;
-    video.muted = true;
+    video.muted = tvMuted;
+    video.volume = tvVolume;
     video.playsInline = true;
     video.preload = 'auto';
     video.crossOrigin = 'anonymous';
@@ -82,12 +85,15 @@ export const SceneObjectMesh = ({
 
   useEffect(() => {
     if (!isTvAnimated || !tvVideoElRef.current) return;
+    tvVideoElRef.current.loop = true;
+    tvVideoElRef.current.muted = tvMuted;
+    tvVideoElRef.current.volume = tvVolume;
     if (isTvInstalled) {
       void tvVideoElRef.current.play().catch(() => {});
       return;
     }
     tvVideoElRef.current.pause();
-  }, [isTvAnimated, isTvInstalled]);
+  }, [isTvAnimated, isTvInstalled, tvMuted, tvVolume]);
 
   useFrame(({ clock }) => {
     if (isMountedLight && lightSpotRef.current && lightTargetRef.current) {

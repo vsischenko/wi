@@ -43,6 +43,8 @@ interface WizardState {
   setCountertopColor: (objectId: string, color: 'white' | 'black' | 'wood') => void;
   toggleCountertopUsb: (objectId: string) => void;
   setStorageDoor: (objectId: string, hasDoor: boolean) => void;
+  setTvMuted: (objectId: string, muted: boolean) => void;
+  setTvVolume: (objectId: string, volume: number) => void;
   toggleGraphicFrameSelection: (id: string) => void;
   clearGraphicFrameSelection: () => void;
   applyGraphicToFrames: (
@@ -91,6 +93,7 @@ const isCounterLike = (productId: string) =>
   ['counter', 'frame-counter'].includes(PRODUCT_BY_ID[productId].category);
 const isStorageLike = (productId: string) =>
   ['storage', 'closet'].includes(PRODUCT_BY_ID[productId].category);
+const isTvProduct = (productId: string) => ['tv-19', 'tv-96-16x9'].includes(productId);
 
 const getDefaultOptions = (productId: string) => {
   if (isShelf(productId)) {
@@ -105,6 +108,12 @@ const getDefaultOptions = (productId: string) => {
   if (isStorageLike(productId)) {
     return {
       storageHasDoor: true,
+    };
+  }
+  if (isTvProduct(productId)) {
+    return {
+      tvMuted: true,
+      tvVolume: 0.6,
     };
   }
   return undefined;
@@ -568,6 +577,45 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       return {
         ...withHistory(next, state),
         modelContextMenu: null,
+      };
+    }),
+  setTvMuted: (objectId, muted) =>
+    set((state) => {
+      const target = state.sceneObjects.find((obj) => obj.instanceId === objectId);
+      if (!target || !isTvProduct(target.productId)) return state;
+      const next = state.sceneObjects.map((obj) =>
+        obj.instanceId === objectId
+          ? {
+              ...obj,
+              options: {
+                ...obj.options,
+                tvMuted: muted,
+              },
+            }
+          : obj,
+      );
+      return {
+        ...withHistory(next, state),
+      };
+    }),
+  setTvVolume: (objectId, volume) =>
+    set((state) => {
+      const target = state.sceneObjects.find((obj) => obj.instanceId === objectId);
+      if (!target || !isTvProduct(target.productId)) return state;
+      const clamped = Math.max(0, Math.min(1, volume));
+      const next = state.sceneObjects.map((obj) =>
+        obj.instanceId === objectId
+          ? {
+              ...obj,
+              options: {
+                ...obj.options,
+                tvVolume: clamped,
+              },
+            }
+          : obj,
+      );
+      return {
+        ...withHistory(next, state),
       };
     }),
 

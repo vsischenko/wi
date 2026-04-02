@@ -25,6 +25,8 @@ export const ModelContextMenu = () => {
   const setCountertopColor = useWizardStore((s) => s.setCountertopColor);
   const toggleCountertopUsb = useWizardStore((s) => s.toggleCountertopUsb);
   const setStorageDoor = useWizardStore((s) => s.setStorageDoor);
+  const setTvMuted = useWizardStore((s) => s.setTvMuted);
+  const setTvVolume = useWizardStore((s) => s.setTvVolume);
 
   useEffect(() => {
     if (!menu) return;
@@ -95,6 +97,27 @@ export const ModelContextMenu = () => {
           <button type="button" onClick={() => setStorageDoor(object.instanceId, false)}>
             Door: NO
           </button>
+        </>
+      )}
+      {(object.productId === 'tv-19' || object.productId === 'tv-96-16x9') && (
+        <>
+          <button
+            type="button"
+            onClick={() => setTvMuted(object.instanceId, !(object.options?.tvMuted ?? true))}
+          >
+            Sound: {object.options?.tvMuted ?? true ? 'OFF' : 'ON'}
+          </button>
+          <label className="shelf-menu-field">
+            <span>Volume: {Math.round((object.options?.tvVolume ?? 0.6) * 100)}%</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={Math.round((object.options?.tvVolume ?? 0.6) * 100)}
+              onChange={(event) => setTvVolume(object.instanceId, Number(event.target.value) / 100)}
+            />
+          </label>
         </>
       )}
       {showRemoveFromFrame && (

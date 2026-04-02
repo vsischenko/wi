@@ -53,6 +53,8 @@ export interface SceneObject {
     countertopColor?: 'white' | 'black' | 'wood';
     countertopUsb?: boolean;
     storageHasDoor?: boolean;
+    tvMuted?: boolean;
+    tvVolume?: number;
   };
 }
 
