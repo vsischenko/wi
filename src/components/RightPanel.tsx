@@ -520,7 +520,10 @@ export const RightPanel = () => {
               </div>
             </section>
 
-            {selectedMakeItNicerEditObject && (
+            {selectedMakeItNicerEditObject &&
+              // If the selected item is attached to a frame (shelf/hangable), we show inline options
+              // inside the "Installed on frames" button, not in a separate block.
+              !selectedMakeItNicerEditObject.attachedToFrameId && (
               <section className="booth-section">
                 <div className="booth-section__title">Selected item options</div>
                 <p className="booth-section__intro">
@@ -664,21 +667,90 @@ export const RightPanel = () => {
                         <div className="installed-empty frame-install-group__empty">Nothing on this frame yet.</div>
                       ) : (
                         <div className="installed-list frame-install-group__list">
-                          {items.map((item) => (
-                            <button
-                              key={item.instanceId}
-                              type="button"
-                              className={`installed-item ${selectedObjectId === item.instanceId ? 'active' : ''}`}
-                              onClick={() => selectObject(item.instanceId)}
-                            >
-                              <span>{PRODUCT_BY_ID[item.productId].name}</span>
-                              {PRODUCT_BY_ID[item.productId].category === 'shelf' ? (
-                                <span>{shelfColorLabel(item.options?.shelfColor)}</span>
-                              ) : (
-                                <span>—</span>
-                              )}
-                            </button>
-                          ))}
+                          {items.map((item) => {
+                            const product = PRODUCT_BY_ID[item.productId];
+                            const expanded = selectedObjectId === item.instanceId;
+                            const showRemove = currentStep === 2 && !!item.attachedToFrameId;
+                            return (
+                              <div
+                                key={item.instanceId}
+                                className={`installed-item ${expanded ? 'active installed-item--expanded' : ''}`}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => selectObject(item.instanceId)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') selectObject(item.instanceId);
+                                }}
+                              >
+                                <div className="installed-item__main">
+                                  <span>{product.name}</span>
+                                  {product.category === 'shelf' ? (
+                                    <span>{shelfColorLabel(item.options?.shelfColor)}</span>
+                                  ) : (
+                                    <span>—</span>
+                                  )}
+                                </div>
+
+                                {expanded && product.category === 'shelf' && (
+                                  <div className="installed-item__options">
+                                    <div className="installed-item__options-title">Shelf color</div>
+                                    <div className="option-buttons">
+                                      {(['white', 'black', 'wood'] as const).map((color) => (
+                                        <button
+                                          key={color}
+                                          type="button"
+                                          className={item.options?.shelfColor === color ? 'active' : ''}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShelfColor(item.instanceId, color);
+                                          }}
+                                        >
+                                          {shelfColorLabel(color)}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {expanded && showRemove && (
+                                  <div className="installed-item__options installed-item__options--danger">
+                                    <button
+                                      type="button"
+                                      className="remove-icon-btn"
+                                      title="Remove from frame"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteObject(item.instanceId);
+                                      }}
+                                    >
+                                      <svg
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                      >
+                                        <path
+                                          d="M9 3h6m-8 4h10m-9 0v13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V7"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                        />
+                                        <path
+                                          d="M10 11v6M14 11v6"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
