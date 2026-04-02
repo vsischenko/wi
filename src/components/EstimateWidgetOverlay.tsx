@@ -37,6 +37,7 @@ export const EstimateWidgetOverlay = () => {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'estimate' | 'ddp'>('estimate');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [compactView, setCompactView] = useState(true);
   const sceneObjects = useWizardStore((s) => s.sceneObjects);
   const frameGraphics = useWizardStore((s) => s.frameGraphics);
   const boothLegCountOverride = useWizardStore((s) => s.boothLegCountOverride);
@@ -265,6 +266,15 @@ export const EstimateWidgetOverlay = () => {
             <option value="variant-1">Variant 1 — V1 · 1.1</option>
           </select>
           <div className="estimate-overlay__status">Project status: QUOTE READY</div>
+          <button
+            type="button"
+            className={`estimate-overlay__details-toggle${compactView ? ' active' : ''}`}
+            aria-pressed={compactView}
+            title="Pressed = collapsed, released = expanded"
+            onClick={() => setCompactView((v) => !v)}
+          >
+            Details
+          </button>
           <button type="button" className="estimate-overlay__close" onClick={() => setOpen(false)}>
             ✕ Close
           </button>
@@ -276,7 +286,6 @@ export const EstimateWidgetOverlay = () => {
             <table className="estimate-table-ui">
               <thead>
                 <tr>
-                  <th></th>
                   <th>Article</th>
                   <th>Dimensions</th>
                   <th>Weight</th>
@@ -287,12 +296,14 @@ export const EstimateWidgetOverlay = () => {
               </thead>
               <tbody>
                 {data.frameGroups.map((group) => {
-                  const isOpen = expanded[group.id] ?? true;
+                  const isOpen = compactView ? false : (expanded[group.id] ?? true);
                   return (
                     <Fragment key={group.id}>
                       <tr key={`${group.id}-head`} className="estimate-table-ui__product" onClick={() => toggleGroup(group.id)}>
-                        <td className="estimate-table-ui__chev">{isOpen ? '▾' : '▸'}</td>
-                        <td className="estimate-table-ui__product-name">{group.frameName}</td>
+                        <td className="estimate-table-ui__product-name">
+                          <span className="estimate-table-ui__chev">{isOpen ? '▾' : '▸'}</span>
+                          {group.frameName}
+                        </td>
                         <td>{group.frameLine.dimensions}</td>
                         <td>{fmtKg(group.subtotalWeight)}</td>
                         <td>1</td>
@@ -302,11 +313,9 @@ export const EstimateWidgetOverlay = () => {
                       {isOpen && (
                         <>
                           <tr className="estimate-table-ui__section">
-                            <td></td>
                             <td colSpan={6}>Structure base</td>
                           </tr>
                           <tr className="estimate-table-ui__article">
-                            <td></td>
                             <td>{group.frameLine.name}</td>
                             <td>{group.frameLine.dimensions}</td>
                             <td>{fmtKg(group.frameLine.totalWeight)}</td>
@@ -317,12 +326,10 @@ export const EstimateWidgetOverlay = () => {
                           {group.mountedLines.length > 0 && (
                             <>
                               <tr className="estimate-table-ui__section">
-                                <td></td>
                                 <td colSpan={6}>Mounted on this frame</td>
                               </tr>
                               {group.mountedLines.map((row) => (
                                 <tr className="estimate-table-ui__article" key={row.key}>
-                                  <td></td>
                                   <td>{row.name}</td>
                                   <td>{row.dimensions}</td>
                                   <td>{fmtKg(row.totalWeight)}</td>
@@ -336,12 +343,10 @@ export const EstimateWidgetOverlay = () => {
                           {group.supportLines.length > 0 && (
                             <>
                               <tr className="estimate-table-ui__section">
-                                <td></td>
                                 <td colSpan={6}>Support accessories</td>
                               </tr>
                               {group.supportLines.map((row) => (
                                 <tr className="estimate-table-ui__article" key={row.key}>
-                                  <td></td>
                                   <td>{row.name}</td>
                                   <td>{row.dimensions}</td>
                                   <td>{fmtKg(row.totalWeight)}</td>
@@ -372,7 +377,6 @@ export const EstimateWidgetOverlay = () => {
             <table className="estimate-table-ui">
               <thead>
                 <tr>
-                  <th></th>
                   <th>Graphic panel</th>
                   <th>Panel size</th>
                   <th>Area</th>
@@ -384,7 +388,6 @@ export const EstimateWidgetOverlay = () => {
               <tbody>
                 {data.graphicsLines.length === 0 ? (
                   <tr className="estimate-table-ui__article">
-                    <td></td>
                     <td colSpan={6}>No graphics selected yet.</td>
                   </tr>
                 ) : (
@@ -392,7 +395,6 @@ export const EstimateWidgetOverlay = () => {
                     const areaM2 = line.totalPrice / GRAPHICS_RATE_EUR_PER_M2;
                     return (
                       <tr className="estimate-table-ui__article" key={line.key}>
-                        <td></td>
                         <td>{line.name}</td>
                         <td>{line.dimensions}</td>
                         <td>{fmtM2(areaM2)}</td>
