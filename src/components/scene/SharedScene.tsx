@@ -1,5 +1,6 @@
 import { Grid, Line } from '@react-three/drei';
 import { useMemo, useState } from 'react';
+import { modelContextMenuEligible } from '../ModelContextMenu';
 import { isFrameSlotProductId, PRODUCT_BY_ID } from '../../data/products';
 import { computeTopEdgeWorldPosition, getFrameAttachMode } from '../../utils/frameAttach';
 import { useWizardStore } from '../../store/useWizardStore';
@@ -28,6 +29,7 @@ export const SharedScene = ({
   const setPlacementPreview = useWizardStore((s) => s.setPlacementPreview);
   const selectObject = useWizardStore((s) => s.selectObject);
   const closeModelContextMenu = useWizardStore((s) => s.closeModelContextMenu);
+  const openModelContextMenu = useWizardStore((s) => s.openModelContextMenu);
   const toggleGraphicFrameSelection = useWizardStore((s) => s.toggleGraphicFrameSelection);
   const clearGraphicFrameSelection = useWizardStore((s) => s.clearGraphicFrameSelection);
   const moveObject = useWizardStore((s) => s.moveObject);
@@ -227,6 +229,18 @@ export const SharedScene = ({
               } else {
                 selectObject(object.instanceId);
               }
+              return;
+            }
+            const product = PRODUCT_BY_ID[object.productId];
+            if (
+              (currentStep === 2 || currentStep === 3) &&
+              modelContextMenuEligible(product.category)
+            ) {
+              if (currentStep === 3 && product.category === 'hangable') {
+                selectObject(object.instanceId);
+                return;
+              }
+              openModelContextMenu(object.instanceId, event.nativeEvent.clientX, event.nativeEvent.clientY);
               return;
             }
             selectObject(object.instanceId);

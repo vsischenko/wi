@@ -905,6 +905,18 @@ body,
   cursor: pointer;
 }
 
+.shelf-menu button.shelf-menu-danger {
+  margin-top: 4px;
+  border-color: #e57373;
+  background: #ffebee;
+  color: #c62828;
+  font-weight: 600;
+}
+
+.shelf-menu button.shelf-menu-danger:hover {
+  background: #ffcdd2;
+}
+
 .price-summary {
   flex: 0 1 auto;
   max-height: min(360px, 40vh);

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ModelContextMenu } from './ModelContextMenu';
 import { RightPanel } from './RightPanel';
 import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
@@ -34,6 +35,7 @@ export const Layout = () => {
         </main>
         <StatusBar />
       </div>
+      <ModelContextMenu />
     </div>
   );
 };
