@@ -384,6 +384,28 @@ body,
   background: #e3f2fd !important;
 }
 
+.option-remove-row {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e6ed;
+}
+
+.remove-from-frame-btn {
+  width: 100%;
+  border: 1px solid #e57373;
+  background: #ffebee;
+  color: #c62828;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.remove-from-frame-btn:hover {
+  background: #ffcdd2;
+}
+
 .booth-warning-inline {
   font-size: 11px;
   color: #e65100;

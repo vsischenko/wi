@@ -27,7 +27,6 @@ export const SharedScene = ({
   const placementPreview = useWizardStore((s) => s.placementPreview);
   const setPlacementPreview = useWizardStore((s) => s.setPlacementPreview);
   const selectObject = useWizardStore((s) => s.selectObject);
-  const openModelContextMenu = useWizardStore((s) => s.openModelContextMenu);
   const closeModelContextMenu = useWizardStore((s) => s.closeModelContextMenu);
   const toggleGraphicFrameSelection = useWizardStore((s) => s.toggleGraphicFrameSelection);
   const clearGraphicFrameSelection = useWizardStore((s) => s.clearGraphicFrameSelection);
@@ -222,7 +221,7 @@ export const SharedScene = ({
             if (interactionDisabled) return;
             if (event.ctrlKey) return;
             if (draggedProductId) return;
-            if (currentStep !== 3) {
+            if (currentStep === 1) {
               if (selectedObjectId === object.instanceId) {
                 rotateObject(object.instanceId);
               } else {
@@ -230,15 +229,7 @@ export const SharedScene = ({
               }
               return;
             }
-            const product = PRODUCT_BY_ID[object.productId];
-            if (
-              ['shelf', 'hangable', 'counter', 'frame-counter', 'storage', 'closet'].includes(
-                product.category,
-              )
-            ) {
-              openModelContextMenu(object.instanceId, event.nativeEvent.clientX, event.nativeEvent.clientY);
-            }
-            return;
+            selectObject(object.instanceId);
           }}
         />
       ))}

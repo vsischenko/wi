@@ -83,9 +83,11 @@ export const RightPanel = () => {
   const startDrag = useWizardStore((s) => s.startDrag);
   const endDrag = useWizardStore((s) => s.endDrag);
   const selectObject = useWizardStore((s) => s.selectObject);
+  const deleteObject = useWizardStore((s) => s.deleteObject);
   const setShelfColor = useWizardStore((s) => s.setShelfColor);
   const setCountertopColor = useWizardStore((s) => s.setCountertopColor);
   const toggleCountertopUsb = useWizardStore((s) => s.toggleCountertopUsb);
+  const setStorageDoor = useWizardStore((s) => s.setStorageDoor);
   const draggedProductId = useWizardStore((s) => s.draggedProductId);
   const sceneObjects = useWizardStore((s) => s.sceneObjects);
   const selectedObjectId = useWizardStore((s) => s.selectedObjectId);
@@ -199,17 +201,12 @@ export const RightPanel = () => {
       selectedFrameObject ? getOccupiedSlots(selectedFrameObject.instanceId, 'front-face') : [],
     [getOccupiedSlots, selectedFrameObject],
   );
-  const selectedShelfForFrame = useMemo(() => {
-    if (!selectedObject || PRODUCT_BY_ID[selectedObject.productId].category !== 'shelf') return null;
-    if (!selectedFrameObject) return null;
-    if (selectedObject.attachedToFrameId !== selectedFrameObject.instanceId) return null;
+  const selectedMakeItNicerEditObject = useMemo(() => {
+    if (currentStep !== 2 || !selectedObject) return null;
+    const cat = PRODUCT_BY_ID[selectedObject.productId].category;
+    if (!['shelf', 'hangable', 'counter', 'frame-counter', 'storage', 'closet'].includes(cat)) return null;
     return selectedObject;
-  }, [selectedFrameObject, selectedObject]);
-  const selectedCounterObject = useMemo(() => {
-    if (!selectedObject) return null;
-    const category = PRODUCT_BY_ID[selectedObject.productId].category;
-    return ['counter', 'frame-counter'].includes(category) ? selectedObject : null;
-  }, [selectedObject]);
+  }, [currentStep, selectedObject]);
   const shelfColorLabel = (color: 'white' | 'black' | 'wood' | undefined) =>
     color === 'black' ? 'Black' : color === 'wood' ? 'Wood' : 'White';
   const countertopColorLabel = (color: 'white' | 'black' | 'wood' | undefined) =>
@@ -508,22 +505,6 @@ export const RightPanel = () => {
                       ))
                     )}
                   </div>
-                  {selectedShelfForFrame && (
-                    <div className="option-row">
-                      <div className="installed-title">Shelf color</div>
-                      <div className="option-buttons">
-                        {(['white', 'black', 'wood'] as const).map((color) => (
-                          <button
-                            key={color}
-                            className={selectedShelfForFrame.options?.shelfColor === color ? 'active' : ''}
-                            onClick={() => setShelfColor(selectedShelfForFrame.instanceId, color)}
-                          >
-                            {shelfColorLabel(color)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               ) : (
                 <div className="graphics-step-help">
@@ -560,43 +541,116 @@ export const RightPanel = () => {
               </div>
             </section>
 
-            {selectedCounterObject && (
-              <div className="option-row">
-                <div className="installed-title">Countertop</div>
-                <div className="option-buttons">
-                  <button
-                    className={(selectedCounterObject.options?.countertopUsb ?? true) ? 'active' : ''}
-                    onClick={() => {
-                      if (!(selectedCounterObject.options?.countertopUsb ?? true)) {
-                        toggleCountertopUsb(selectedCounterObject.instanceId);
-                      }
-                    }}
-                  >
-                    Top with USB
-                  </button>
-                  <button
-                    className={!(selectedCounterObject.options?.countertopUsb ?? true) ? 'active' : ''}
-                    onClick={() => {
-                      if (selectedCounterObject.options?.countertopUsb ?? true) {
-                        toggleCountertopUsb(selectedCounterObject.instanceId);
-                      }
-                    }}
-                  >
-                    Top without USB
-                  </button>
-                </div>
-                <div className="option-buttons">
-                  {(['white', 'black', 'wood'] as const).map((color) => (
-                    <button
-                      key={color}
-                      className={selectedCounterObject.options?.countertopColor === color ? 'active' : ''}
-                      onClick={() => setCountertopColor(selectedCounterObject.instanceId, color)}
-                    >
-                      {countertopColorLabel(color)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {selectedMakeItNicerEditObject && (
+              <section className="booth-section">
+                <div className="booth-section__title">Selected item options</div>
+                <p className="booth-section__intro">
+                  {PRODUCT_BY_ID[selectedMakeItNicerEditObject.productId].name}
+                </p>
+                {PRODUCT_BY_ID[selectedMakeItNicerEditObject.productId].category === 'shelf' && (
+                  <div className="option-row">
+                    <div className="installed-title">Shelf color</div>
+                    <div className="option-buttons">
+                      {(['white', 'black', 'wood'] as const).map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className={
+                            selectedMakeItNicerEditObject.options?.shelfColor === color ? 'active' : ''
+                          }
+                          onClick={() => setShelfColor(selectedMakeItNicerEditObject.instanceId, color)}
+                        >
+                          {shelfColorLabel(color)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {['counter', 'frame-counter'].includes(
+                  PRODUCT_BY_ID[selectedMakeItNicerEditObject.productId].category,
+                ) && (
+                  <div className="option-row">
+                    <div className="installed-title">Countertop</div>
+                    <div className="option-buttons">
+                      <button
+                        type="button"
+                        className={
+                          (selectedMakeItNicerEditObject.options?.countertopUsb ?? true) ? 'active' : ''
+                        }
+                        onClick={() => {
+                          if (!(selectedMakeItNicerEditObject.options?.countertopUsb ?? true)) {
+                            toggleCountertopUsb(selectedMakeItNicerEditObject.instanceId);
+                          }
+                        }}
+                      >
+                        Top with USB
+                      </button>
+                      <button
+                        type="button"
+                        className={!(selectedMakeItNicerEditObject.options?.countertopUsb ?? true) ? 'active' : ''}
+                        onClick={() => {
+                          if (selectedMakeItNicerEditObject.options?.countertopUsb ?? true) {
+                            toggleCountertopUsb(selectedMakeItNicerEditObject.instanceId);
+                          }
+                        }}
+                      >
+                        Top without USB
+                      </button>
+                    </div>
+                    <div className="option-buttons">
+                      {(['white', 'black', 'wood'] as const).map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className={
+                            selectedMakeItNicerEditObject.options?.countertopColor === color ? 'active' : ''
+                          }
+                          onClick={() =>
+                            setCountertopColor(selectedMakeItNicerEditObject.instanceId, color)
+                          }
+                        >
+                          {countertopColorLabel(color)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {['storage', 'closet'].includes(PRODUCT_BY_ID[selectedMakeItNicerEditObject.productId].category) && (
+                  <div className="option-row">
+                    <div className="installed-title">Door</div>
+                    <div className="option-buttons">
+                      <button
+                        type="button"
+                        className={(selectedMakeItNicerEditObject.options?.storageHasDoor ?? true) ? 'active' : ''}
+                        onClick={() => setStorageDoor(selectedMakeItNicerEditObject.instanceId, true)}
+                      >
+                        Door: yes
+                      </button>
+                      <button
+                        type="button"
+                        className={!(selectedMakeItNicerEditObject.options?.storageHasDoor ?? true) ? 'active' : ''}
+                        onClick={() => setStorageDoor(selectedMakeItNicerEditObject.instanceId, false)}
+                      >
+                        Door: no
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {selectedMakeItNicerEditObject.attachedToFrameId &&
+                  ['shelf', 'hangable'].includes(
+                    PRODUCT_BY_ID[selectedMakeItNicerEditObject.productId].category,
+                  ) && (
+                    <div className="option-remove-row">
+                      <button
+                        type="button"
+                        className="remove-from-frame-btn"
+                        onClick={() => deleteObject(selectedMakeItNicerEditObject.instanceId)}
+                      >
+                        Remove from frame
+                      </button>
+                    </div>
+                  )}
+              </section>
             )}
           </div>
         ) : (
