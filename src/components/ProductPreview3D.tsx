@@ -47,7 +47,7 @@ const PreviewMesh = ({ productId }: Props) => {
         <boxGeometry args={[product.dimensions.width, product.dimensions.height, product.dimensions.depth]} />
         <meshStandardMaterial color={product.color} />
       </mesh>
-      {product.accentColor && product.category !== 'shelf' && (
+      {product.accentColor && product.category !== 'shelf' && product.category !== 'hangable' && (
         <mesh position={[0, 0, product.dimensions.depth / 2 + 0.2]}>
           <planeGeometry args={[product.dimensions.width * 0.9, product.dimensions.height * 0.9]} />
           <meshStandardMaterial color={product.accentColor} />

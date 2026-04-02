@@ -7,13 +7,21 @@ export type ProductCategory =
   | 'counter'
   | 'storage'
   | 'closet'
-  | 'shelf';
+  | 'shelf'
+  | 'hangable';
+
+/** Step 2 catalog grouping in the right panel */
+export type BoothCatalogGroup = 'advised' | 'nice';
+
+export type BoothLegFootKind = 'pad' | 'single' | 'double';
 
 export interface Product {
   id: string;
   name: string;
   category: ProductCategory;
   step: WizardStep;
+  /** Step 2: which subsection lists this product */
+  boothCatalogGroup?: BoothCatalogGroup;
   dimensions: { width: number; height: number; depth: number };
   priceEur: number;
   weightKg: number;

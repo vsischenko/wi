@@ -1,4 +1,4 @@
-import type { Product } from '../types';
+import type { BoothCatalogGroup, Product } from '../types';
 
 export const PRODUCTS: Product[] = [
   {
@@ -123,10 +123,63 @@ export const PRODUCTS: Product[] = [
     thumbnailUrl: '/thumbnails/closet-48x104.svg',
   },
   {
+    id: 'light-led-strip-96',
+    name: 'LED strip 96 (top)',
+    category: 'hangable',
+    step: 2,
+    boothCatalogGroup: 'advised',
+    dimensions: { width: 96, height: 4, depth: 8 },
+    priceEur: 45,
+    weightKg: 1.2,
+    color: '#FFFDE7',
+    thumbnailUrl: '/thumbnails/shelf-96.svg',
+    attachableTo: ['frame-96', 'frame-counter-96'],
+  },
+  {
+    id: 'light-spot-mini',
+    name: 'Spot light (mini)',
+    category: 'hangable',
+    step: 2,
+    boothCatalogGroup: 'advised',
+    dimensions: { width: 14, height: 14, depth: 18 },
+    priceEur: 32,
+    weightKg: 0.8,
+    color: '#ECEFF1',
+    thumbnailUrl: '/thumbnails/shelf-48.svg',
+    attachableTo: ['frame-96', 'frame-counter-96'],
+  },
+  {
+    id: 'tv-19',
+    name: 'Display 19"',
+    category: 'hangable',
+    step: 2,
+    boothCatalogGroup: 'nice',
+    dimensions: { width: 42, height: 28, depth: 5 },
+    priceEur: 180,
+    weightKg: 3.5,
+    color: '#1a1a1a',
+    thumbnailUrl: '/thumbnails/shelf-52.svg',
+    attachableTo: ['frame-96', 'frame-counter-96'],
+  },
+  {
+    id: 'brochure-pocket-a6',
+    name: 'Brochure pocket (A6)',
+    category: 'hangable',
+    step: 2,
+    boothCatalogGroup: 'nice',
+    dimensions: { width: 18, height: 12, depth: 8 },
+    priceEur: 12,
+    weightKg: 0.3,
+    color: '#E3F2FD',
+    thumbnailUrl: '/thumbnails/shelf-48.svg',
+    attachableTo: ['frame-96', 'frame-counter-96'],
+  },
+  {
     id: 'shelf-96',
     name: 'Shelf 96',
     category: 'shelf',
     step: 2,
+    boothCatalogGroup: 'nice',
     dimensions: { width: 96, height: 3, depth: 30 },
     priceEur: 35,
     weightKg: 3.2,
@@ -139,6 +192,7 @@ export const PRODUCTS: Product[] = [
     name: 'Shelf 52',
     category: 'shelf',
     step: 2,
+    boothCatalogGroup: 'nice',
     dimensions: { width: 52, height: 3, depth: 25 },
     priceEur: 28,
     weightKg: 2.1,
@@ -151,6 +205,7 @@ export const PRODUCTS: Product[] = [
     name: 'Shelf 48',
     category: 'shelf',
     step: 2,
+    boothCatalogGroup: 'nice',
     dimensions: { width: 48, height: 3, depth: 25 },
     priceEur: 25,
     weightKg: 1.9,
@@ -161,3 +216,12 @@ export const PRODUCTS: Product[] = [
 ];
 
 export const PRODUCT_BY_ID = Object.fromEntries(PRODUCTS.map((p) => [p.id, p]));
+
+export function isFrameSlotProductId(productId: string): boolean {
+  const c = PRODUCT_BY_ID[productId]?.category;
+  return c === 'shelf' || c === 'hangable';
+}
+
+export function getBoothCatalogProducts(group: BoothCatalogGroup): Product[] {
+  return PRODUCTS.filter((p) => p.step === 2 && p.boothCatalogGroup === group);
+}

@@ -1,22 +1,28 @@
 import { useMemo, useState } from 'react';
-import { PRODUCT_BY_ID } from '../data/products';
+import { getBoothCatalogProducts, isFrameSlotProductId, PRODUCT_BY_ID } from '../data/products';
 import { ProductPreview3D } from './ProductPreview3D';
 import { GraphicsEditorModal } from './graphics/GraphicsEditorModal';
 import { getStepProducts, useWizardStore } from '../store/useWizardStore';
+import type { BoothLegFootKind, WizardStep } from '../types';
+import {
+  countStructuralFramesForBooth,
+  recommendedLegCount,
+  recommendedStabilizerCount,
+} from '../utils/booth';
 import { getGraphicSurfaceSizeCm } from '../utils/graphics';
 
 const STEP_META = {
   1: {
-    name: 'Quick add product',
-    description: 'Quickly add frames, counters, and storage units on the scene.',
+    name: 'Shape your booth',
+    description: 'Place frames, arches, counters, and storage on the floor plan.',
   },
   2: {
-    name: 'Edit Product',
-    description: 'Select a frame and edit it by attaching shelves.',
+    name: 'Make it nicer',
+    description: 'Security hardware, lighting, and hanging accessories. Green slots show where the selected item can attach.',
   },
   3: {
-    name: 'Viewer mode',
-    description: 'Select advertising surfaces and preview/apply graphics.',
+    name: 'Dressing',
+    description: 'Select advertising surfaces and apply graphics.',
   },
 } as const;
 
@@ -39,6 +45,38 @@ const getCatalogTabForProduct = (productId: string): CatalogTab | null => {
   return null;
 };
 
+function BoothSecurityModal({
+  open,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="booth-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="booth-risk-title">
+      <div className="booth-modal">
+        <div id="booth-risk-title" className="booth-modal__title">
+          Booth stability warning
+        </div>
+        <p className="booth-modal__text">
+          Fewer legs than recommended may compromise stand safety. Continuing is at your own risk.
+        </p>
+        <div className="booth-modal__actions">
+          <button type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="primary" onClick={onConfirm}>
+            I understand, continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const RightPanel = () => {
   const currentStep = useWizardStore((s) => s.currentStep);
   const setStep = useWizardStore((s) => s.setStep);
@@ -55,8 +93,18 @@ export const RightPanel = () => {
   const clearGraphicFrameSelection = useWizardStore((s) => s.clearGraphicFrameSelection);
   const getOccupiedSlots = useWizardStore((s) => s.getOccupiedSlots);
   const frameGraphics = useWizardStore((s) => s.frameGraphics);
+  const boothLegCountOverride = useWizardStore((s) => s.boothLegCountOverride);
+  const boothStabilizerCountOverride = useWizardStore((s) => s.boothStabilizerCountOverride);
+  const boothLegFootKind = useWizardStore((s) => s.boothLegFootKind);
+  const boothSecurityRiskAccepted = useWizardStore((s) => s.boothSecurityRiskAccepted);
+  const setBoothLegCountOverride = useWizardStore((s) => s.setBoothLegCountOverride);
+  const setBoothStabilizerCountOverride = useWizardStore((s) => s.setBoothStabilizerCountOverride);
+  const setBoothLegFootKind = useWizardStore((s) => s.setBoothLegFootKind);
+  const acceptBoothSecurityRisk = useWizardStore((s) => s.acceptBoothSecurityRisk);
   const [graphicsModalOpen, setGraphicsModalOpen] = useState(false);
   const [estimateHidden, setEstimateHidden] = useState(true);
+  const [legRiskModalOpen, setLegRiskModalOpen] = useState(false);
+  const [pendingLegCount, setPendingLegCount] = useState<number | null>(null);
   const [catalogTab, setCatalogTab] = useState<CatalogTab>('frames');
   const [favoriteProductIds, setFavoriteProductIds] = useState<string[]>([
     'frame-96',
@@ -72,14 +120,55 @@ export const RightPanel = () => {
   );
 
   const structureProducts = useMemo(() => getStepProducts(1), []);
-  const shelfProducts = useMemo(() => getStepProducts(2), []);
+  const advisedProducts = useMemo(() => getBoothCatalogProducts('advised'), []);
+  const niceProducts = useMemo(() => getBoothCatalogProducts('nice'), []);
+  const structuralCount = useMemo(() => countStructuralFramesForBooth(sceneObjects), [sceneObjects]);
+  const recLegs = useMemo(() => recommendedLegCount(structuralCount), [structuralCount]);
+  const recStabilizers = useMemo(() => recommendedStabilizerCount(structuralCount), [structuralCount]);
+  const effectiveLegs =
+    boothLegCountOverride === null ? recLegs : Math.max(0, boothLegCountOverride);
+  const effectiveStabilizers =
+    boothStabilizerCountOverride === null ? recStabilizers : Math.max(0, boothStabilizerCountOverride);
+
+  const requestLegCount = (next: number) => {
+    const clamped = Math.max(0, next);
+    if (clamped >= recLegs || boothSecurityRiskAccepted) {
+      setBoothLegCountOverride(clamped === recLegs ? null : clamped);
+      return;
+    }
+    setPendingLegCount(clamped);
+    setLegRiskModalOpen(true);
+  };
+
+  const confirmLegRisk = () => {
+    if (pendingLegCount !== null) {
+      acceptBoothSecurityRisk();
+      setBoothLegCountOverride(pendingLegCount);
+    }
+    setLegRiskModalOpen(false);
+    setPendingLegCount(null);
+  };
+
+  const resetLegsToRecommended = () => {
+    setBoothLegCountOverride(null);
+  };
+
+  const adjustStabilizers = (delta: number) => {
+    const base = effectiveStabilizers;
+    const next = Math.max(0, base + delta);
+    if (next === recStabilizers) {
+      setBoothStabilizerCountOverride(null);
+    } else {
+      setBoothStabilizerCountOverride(next);
+    }
+  };
+
   const filteredStructureProducts = useMemo(() => {
     if (catalogTab === 'favorites') {
       return structureProducts.filter((product) => favoriteProductIds.includes(product.id));
     }
     return structureProducts.filter((product) => getCatalogTabForProduct(product.id) === catalogTab);
   }, [catalogTab, favoriteProductIds, structureProducts]);
-  const canGoNext = sceneObjects.some((obj) => PRODUCT_BY_ID[obj.productId].step === 1);
   const noFramesInStep2 = currentStep === 2 && frames.length === 0;
   const selectedObject = useMemo(
     () => (selectedObjectId ? sceneObjects.find((obj) => obj.instanceId === selectedObjectId) ?? null : null),
@@ -94,13 +183,13 @@ export const RightPanel = () => {
     }
     return ['frame-96', 'frame-counter-96'].includes(target.productId) ? target : null;
   }, [currentStep, sceneObjects, selectedObjectId]);
-  const installedShelves = useMemo(
+  const installedSlotItems = useMemo(
     () =>
       selectedFrameObject
         ? sceneObjects.filter(
             (obj) =>
               obj.attachedToFrameId === selectedFrameObject.instanceId &&
-              PRODUCT_BY_ID[obj.productId].category === 'shelf',
+              isFrameSlotProductId(obj.productId),
           )
         : [],
     [sceneObjects, selectedFrameObject],
@@ -134,7 +223,7 @@ export const RightPanel = () => {
       return acc;
     }, {});
     const structureItems = Object.entries(qtyByProduct)
-      .filter(([productId]) => PRODUCT_BY_ID[productId].category !== 'shelf')
+      .filter(([productId]) => !isFrameSlotProductId(productId))
       .map(([productId, qty]) => {
         const product = PRODUCT_BY_ID[productId];
         return {
@@ -146,7 +235,7 @@ export const RightPanel = () => {
         };
       });
     const accessoryItems = Object.entries(qtyByProduct)
-      .filter(([productId]) => PRODUCT_BY_ID[productId].category === 'shelf')
+      .filter(([productId]) => isFrameSlotProductId(productId))
       .map(([productId, qty]) => {
         const product = PRODUCT_BY_ID[productId];
         return {
@@ -182,18 +271,31 @@ export const RightPanel = () => {
       <div className="step-card">
         <div className="mode-tabs">
           <button className={currentStep === 1 ? 'active' : ''} onClick={() => setStep(1)}>
-            1. Quick add product
+            1. Shape your booth
           </button>
-          <button
-            className={currentStep === 2 ? 'active' : ''}
-            onClick={() => setStep(2)}
-            disabled={!canGoNext}
-            title={!canGoNext ? 'Add at least one structure product first' : undefined}
-          >
-            2. Edit Product
+          <button className={currentStep === 2 ? 'active' : ''} onClick={() => setStep(2)}>
+            2. Make it nicer
           </button>
           <button className={currentStep === 3 ? 'active' : ''} onClick={() => setStep(3)}>
-            3. Viewer mode
+            3. Dressing
+          </button>
+        </div>
+        <div className="step-flow-nav">
+          <button
+            type="button"
+            className="step-flow-nav__btn"
+            disabled={currentStep <= 1}
+            onClick={() => setStep((currentStep - 1) as WizardStep)}
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            className="step-flow-nav__btn"
+            disabled={currentStep >= 3}
+            onClick={() => setStep((currentStep + 1) as WizardStep)}
+          >
+            Next
           </button>
         </div>
         <div className="step-title">{STEP_META[currentStep].name}</div>
@@ -274,86 +376,186 @@ export const RightPanel = () => {
             </div>
           </>
         ) : currentStep === 2 ? (
-          <div className="graphics-step-panel">
-            {selectedFrameObject ? (
-              <>
-                <div className="graphics-step-help">
-                  Selected frame: <strong>{PRODUCT_BY_ID[selectedFrameObject.productId].name}</strong>. Choose shelf
-                  type, then click free green slot on this frame.
+          <div className="graphics-step-panel booth-step">
+            <section className="booth-section">
+              <div className="booth-section__title">Must have (security)</div>
+              <div className="booth-must-block">
+                <div className="booth-must-block__label">Legs (8 mm)</div>
+                <p className="booth-must-block__hint">
+                  Recommended: {recLegs} (2 per frame/arch; counters excluded). Default foot: pad — change type below.
+                </p>
+                <div className="booth-counter-row">
+                  <button type="button" onClick={() => requestLegCount(effectiveLegs - 1)} aria-label="Fewer legs">
+                    −
+                  </button>
+                  <span className="booth-counter-row__value">{effectiveLegs}</span>
+                  <button type="button" onClick={() => requestLegCount(effectiveLegs + 1)} aria-label="More legs">
+                    +
+                  </button>
+                  <button type="button" className="booth-linkish" onClick={resetLegsToRecommended}>
+                    Use recommended
+                  </button>
                 </div>
-                <div className="graphics-step-meta">
-                  Slots used: {selectedFrameOccupiedSlots.length}/{3}
-                </div>
-                <div className="installed-list">
-                  <div className="installed-title">Installed</div>
-                  {installedShelves.length === 0 ? (
-                    <div className="installed-empty">No shelves installed yet.</div>
-                  ) : (
-                    installedShelves.map((shelf) => (
-                      <button
-                        key={shelf.instanceId}
-                        className={`installed-item ${selectedObjectId === shelf.instanceId ? 'active' : ''}`}
-                        onClick={() => selectObject(shelf.instanceId)}
-                      >
-                        <span>{PRODUCT_BY_ID[shelf.productId].name}</span>
-                        <span>{shelfColorLabel(shelf.options?.shelfColor)}</span>
-                      </button>
-                    ))
-                  )}
-                </div>
-                {selectedShelfForFrame && (
-                  <div className="option-row">
-                    <div className="installed-title">Shelf Color</div>
-                    <div className="option-buttons">
-                      {(['white', 'black', 'wood'] as const).map((color) => (
-                        <button
-                          key={color}
-                          className={selectedShelfForFrame.options?.shelfColor === color ? 'active' : ''}
-                          onClick={() => setShelfColor(selectedShelfForFrame.instanceId, color)}
-                        >
-                          {shelfColorLabel(color)}
-                        </button>
-                      ))}
-                    </div>
+                {effectiveLegs < recLegs ? (
+                  <div className="booth-warning-inline">
+                    Below recommended. {boothSecurityRiskAccepted ? 'Risk acknowledged for this configuration.' : ''}
                   </div>
-                )}
-                <div className="product-list">
-                  {shelfProducts.map((product) => (
-                    <button
-                      key={product.id}
-                      className={`product-card ${draggedProductId === product.id ? 'selected' : ''}`}
-                      onClick={() => {
-                        if (draggedProductId === product.id) {
-                          endDrag();
-                        } else {
-                          startDrag(product.id);
-                        }
-                      }}
-                      title="Select shelf and place it on selected frame"
-                    >
-                      <div className="product-card-content">
-                        <div className="product-price-badge">{product.priceEur.toFixed(0)} EUR</div>
-                        <ProductPreview3D productId={product.id} />
-                        <div>
-                          <div className="product-name">{product.name}</div>
-                          <div className="product-meta">
-                            {product.dimensions.width} x {product.dimensions.height} x {product.dimensions.depth} cm
-                          </div>
-                          <div className="product-meta">
-                            {product.weightKg.toFixed(1)} kg
-                          </div>
+                ) : null}
+                <div className="booth-foot-kind">
+                  <span className="booth-foot-kind__label">Foot type</span>
+                  <div className="option-buttons">
+                    {(
+                      [
+                        ['pad', 'Pad'],
+                        ['single', 'Single-dir'],
+                        ['double', 'Double-dir'],
+                      ] as const
+                    ).map(([kind, label]) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        className={boothLegFootKind === kind ? 'active' : ''}
+                        onClick={() => setBoothLegFootKind(kind as BoothLegFootKind)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="booth-must-block">
+                <div className="booth-must-block__label">Frame stabilizers (calculated)</div>
+                <p className="booth-must-block__hint">
+                  Not shown on scene in this prototype. Recommended: {recStabilizers} (simple count from frames).
+                </p>
+                <div className="booth-counter-row">
+                  <button type="button" onClick={() => adjustStabilizers(-1)} aria-label="Fewer stabilizers">
+                    −
+                  </button>
+                  <span className="booth-counter-row__value">{effectiveStabilizers}</span>
+                  <button type="button" onClick={() => adjustStabilizers(1)} aria-label="More stabilizers">
+                    +
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="booth-section">
+              <div className="booth-section__title">Advised to have</div>
+              <p className="booth-section__intro">Top-mounted lighting. Click a product, then a green slot on a frame.</p>
+              <div className="product-list product-list--compact">
+                {advisedProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    className={`product-card ${draggedProductId === product.id ? 'selected' : ''}`}
+                    onClick={() => {
+                      if (draggedProductId === product.id) {
+                        endDrag();
+                      } else {
+                        startDrag(product.id);
+                      }
+                    }}
+                    title="Toggle placement; all compatible frames show slots"
+                  >
+                    <div className="product-card-content">
+                      <div className="product-price-badge">{product.priceEur.toFixed(0)} EUR</div>
+                      <ProductPreview3D productId={product.id} />
+                      <div>
+                        <div className="product-name">{product.name}</div>
+                        <div className="product-meta">
+                          {product.dimensions.width}×{product.dimensions.height}×{product.dimensions.depth} cm
                         </div>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="graphics-step-help">
-                Select a <strong>Frame 96</strong> or <strong>Frame Counter 96</strong> on scene to configure shelves
-                for it.
+                    </div>
+                  </button>
+                ))}
               </div>
-            )}
+            </section>
+
+            <section className="booth-section">
+              <div className="booth-section__title">Nice to have</div>
+              <p className="booth-section__intro">
+                Shelves, display, brochure holders. Select a frame on the scene to inspect what is installed on it.
+              </p>
+              {selectedFrameObject ? (
+                <>
+                  <div className="graphics-step-help">
+                    Frame: <strong>{PRODUCT_BY_ID[selectedFrameObject.productId].name}</strong>. Slots used:{' '}
+                    {selectedFrameOccupiedSlots.length}/3
+                  </div>
+                  <div className="installed-list">
+                    <div className="installed-title">Installed on this frame</div>
+                    {installedSlotItems.length === 0 ? (
+                      <div className="installed-empty">Nothing attached yet.</div>
+                    ) : (
+                      installedSlotItems.map((item) => (
+                        <button
+                          key={item.instanceId}
+                          className={`installed-item ${selectedObjectId === item.instanceId ? 'active' : ''}`}
+                          onClick={() => selectObject(item.instanceId)}
+                        >
+                          <span>{PRODUCT_BY_ID[item.productId].name}</span>
+                          {PRODUCT_BY_ID[item.productId].category === 'shelf' ? (
+                            <span>{shelfColorLabel(item.options?.shelfColor)}</span>
+                          ) : (
+                            <span>—</span>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  {selectedShelfForFrame && (
+                    <div className="option-row">
+                      <div className="installed-title">Shelf color</div>
+                      <div className="option-buttons">
+                        {(['white', 'black', 'wood'] as const).map((color) => (
+                          <button
+                            key={color}
+                            className={selectedShelfForFrame.options?.shelfColor === color ? 'active' : ''}
+                            onClick={() => setShelfColor(selectedShelfForFrame.instanceId, color)}
+                          >
+                            {shelfColorLabel(color)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="graphics-step-help">
+                  Click a <strong>Frame 96</strong> or <strong>Frame Counter 96</strong> to see attachments for that
+                  wall.
+                </div>
+              )}
+              <div className="product-list product-list--compact">
+                {niceProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    className={`product-card ${draggedProductId === product.id ? 'selected' : ''}`}
+                    onClick={() => {
+                      if (draggedProductId === product.id) {
+                        endDrag();
+                      } else {
+                        startDrag(product.id);
+                      }
+                    }}
+                    title="Toggle placement; green slots appear on all compatible frames"
+                  >
+                    <div className="product-card-content">
+                      <div className="product-price-badge">{product.priceEur.toFixed(0)} EUR</div>
+                      <ProductPreview3D productId={product.id} />
+                      <div>
+                        <div className="product-name">{product.name}</div>
+                        <div className="product-meta">
+                          {product.dimensions.width}×{product.dimensions.height}×{product.dimensions.depth} cm
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+
             {selectedCounterObject && (
               <div className="option-row">
                 <div className="installed-title">Countertop</div>
@@ -413,7 +615,7 @@ export const RightPanel = () => {
         {draggedProductId && (
           <div className="placement-hint">
             {currentStep === 2
-              ? 'Shelf mode is active. Click a free green slot on selected frame to place shelf. Esc exits shelf mode.'
+              ? 'Placement mode: click a free green slot on any compatible frame. Esc exits.'
               : 'Placement mode is active. Click on scene to place product. Right-click rotates ghost by 90 degrees. Del removes last placed object. Esc exits placement mode.'}
           </div>
         )}
@@ -477,6 +679,14 @@ export const RightPanel = () => {
         </div>
       )}
       <GraphicsEditorModal open={graphicsModalOpen} onClose={() => setGraphicsModalOpen(false)} />
+      <BoothSecurityModal
+        open={legRiskModalOpen}
+        onCancel={() => {
+          setLegRiskModalOpen(false);
+          setPendingLegCount(null);
+        }}
+        onConfirm={confirmLegRisk}
+      />
     </aside>
   );
 };

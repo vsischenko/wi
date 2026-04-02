@@ -1,6 +1,6 @@
 import { Grid, Line } from '@react-three/drei';
 import { useMemo, useState } from 'react';
-import { PRODUCT_BY_ID } from '../../data/products';
+import { isFrameSlotProductId, PRODUCT_BY_ID } from '../../data/products';
 import { useWizardStore } from '../../store/useWizardStore';
 import { GHOST_SHELF_POSITIONS, SCENE_DEPTH, SCENE_WIDTH } from '../../utils/constants';
 import { snappedXZ } from '../../utils/geometry';
@@ -39,12 +39,6 @@ export const SharedScene = ({
   const [draggingObjectId, setDraggingObjectId] = useState<string | null>(null);
 
   const frameObjects = useMemo(() => getFrame96Objects(), [getFrame96Objects, sceneObjects]);
-  const selectedFrameObject = useMemo(() => {
-    if (!selectedObjectId) return null;
-    const selected = sceneObjects.find((obj) => obj.instanceId === selectedObjectId);
-    if (!selected) return null;
-    return ['frame-96', 'frame-counter-96'].includes(selected.productId) ? selected : null;
-  }, [sceneObjects, selectedObjectId]);
 
   const floorY = 0;
   const halfW = SCENE_WIDTH / 2;
@@ -235,7 +229,9 @@ export const SharedScene = ({
             }
             const product = PRODUCT_BY_ID[object.productId];
             if (
-              ['shelf', 'counter', 'frame-counter', 'storage', 'closet'].includes(product.category)
+              ['shelf', 'hangable', 'counter', 'frame-counter', 'storage', 'closet'].includes(
+                product.category,
+              )
             ) {
               openModelContextMenu(object.instanceId, event.nativeEvent.clientX, event.nativeEvent.clientY);
             }
@@ -246,40 +242,39 @@ export const SharedScene = ({
 
       {currentStep === 2 &&
         draggedProductId &&
-        PRODUCT_BY_ID[draggedProductId]?.category === 'shelf' &&
-        selectedFrameObject &&
+        isFrameSlotProductId(draggedProductId) &&
         frameObjects
-          .filter((frame) => frame.instanceId === selectedFrameObject.instanceId)
-          .map((frame) => {
-          const frameProduct = PRODUCT_BY_ID[frame.productId];
-          const occupied = getOccupiedSlots(frame.instanceId);
-          return GHOST_SHELF_POSITIONS.map((slotY, slotIndex) => {
-            const slotTaken = occupied.includes(slotIndex);
-            const shelfDepth = PRODUCT_BY_ID[draggedProductId].dimensions.depth;
-            const ghostZ = frameProduct.dimensions.depth / 2 + shelfDepth / 2 + 0.5;
-            return (
-              <mesh
-                key={`${frame.instanceId}-${slotIndex}`}
-                position={[frame.position[0], slotY, frame.position[2]]}
-                rotation={[0, frame.rotation, 0]}
-                onPointerDown={(e) => {
-                  if (interactionDisabled) return;
-                  e.stopPropagation();
-                  if (slotTaken) return;
-                  addShelfToFrame(draggedProductId, frame.instanceId, slotIndex);
-                }}
-              >
-                <boxGeometry args={[frameProduct.dimensions.width * 0.9, 2, shelfDepth]} />
-                <meshStandardMaterial
-                  color={slotTaken ? '#f44336' : '#4CAF50'}
-                  transparent
-                  opacity={slotTaken ? 0.35 : 0.22}
-                />
-                <group position={[0, 0, ghostZ]} />
-              </mesh>
-            );
-          });
-        })}
+          .filter((frame) => PRODUCT_BY_ID[draggedProductId].attachableTo?.includes(frame.productId))
+          .flatMap((frame) => {
+            const frameProduct = PRODUCT_BY_ID[frame.productId];
+            const occupied = getOccupiedSlots(frame.instanceId);
+            return GHOST_SHELF_POSITIONS.map((slotY, slotIndex) => {
+              const slotTaken = occupied.includes(slotIndex);
+              const slotDepth = PRODUCT_BY_ID[draggedProductId].dimensions.depth;
+              const ghostZ = frameProduct.dimensions.depth / 2 + slotDepth / 2 + 0.5;
+              return (
+                <mesh
+                  key={`${frame.instanceId}-${slotIndex}`}
+                  position={[frame.position[0], slotY, frame.position[2]]}
+                  rotation={[0, frame.rotation, 0]}
+                  onPointerDown={(e) => {
+                    if (interactionDisabled) return;
+                    e.stopPropagation();
+                    if (slotTaken) return;
+                    addShelfToFrame(draggedProductId, frame.instanceId, slotIndex);
+                  }}
+                >
+                  <boxGeometry args={[frameProduct.dimensions.width * 0.9, 2, slotDepth]} />
+                  <meshStandardMaterial
+                    color={slotTaken ? '#f44336' : '#4CAF50'}
+                    transparent
+                    opacity={slotTaken ? 0.35 : 0.22}
+                  />
+                  <group position={[0, 0, ghostZ]} />
+                </mesh>
+              );
+            });
+          })}
 
       {draggedProductId && PRODUCT_BY_ID[draggedProductId].step === 1 && (
         PRODUCT_BY_ID[draggedProductId].category === 'arch' ? (

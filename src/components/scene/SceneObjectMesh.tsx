@@ -1,6 +1,8 @@
 import { Edges, useTexture } from '@react-three/drei';
-import { Fragment, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Fragment, useMemo, useRef } from 'react';
 import { ClampToEdgeWrapping, SRGBColorSpace } from 'three';
+import type { Mesh } from 'three';
 import { PRODUCT_BY_ID } from '../../data/products';
 import { useWizardStore } from '../../store/useWizardStore';
 import { LOCKED_OPACITY } from '../../utils/constants';
@@ -26,6 +28,20 @@ export const SceneObjectMesh = ({
   const product = PRODUCT_BY_ID[object.productId];
   const isFrameCounter = product.category === 'frame-counter';
   const isShelf = product.category === 'shelf';
+  const isHangable = product.category === 'hangable';
+  const isTv19 = object.productId === 'tv-19';
+  const tvMeshRef = useRef<Mesh>(null);
+  useFrame(({ clock }) => {
+    if (!isTv19 || !tvMeshRef.current) return;
+    const m = tvMeshRef.current.material as import('three').MeshStandardMaterial;
+    if (selected) {
+      m.emissive.set('#26C6DA');
+      m.emissiveIntensity = 0.22;
+      return;
+    }
+    m.emissive.set('#1565c0');
+    m.emissiveIntensity = 0.12 + Math.sin(clock.elapsedTime * 3) * 0.08;
+  });
   const isCounterLike = ['counter', 'frame-counter'].includes(product.category);
   const isStorageLike = ['storage', 'closet'].includes(product.category);
   const isArch = product.category === 'arch';
@@ -81,14 +97,14 @@ export const SceneObjectMesh = ({
       }}
     >
       {!isArch ? (
-        <mesh>
+        <mesh ref={isTv19 ? tvMeshRef : undefined}>
           <boxGeometry args={[product.dimensions.width, product.dimensions.height, product.dimensions.depth]} />
           <meshStandardMaterial
-            color={isShelf ? shelfColorHex : product.color}
+            color={isShelf ? shelfColorHex : isHangable ? product.color : product.color}
             transparent
             opacity={opacity}
-            emissive={selected ? '#26C6DA' : '#000000'}
-            emissiveIntensity={selected ? 0.22 : 0}
+            emissive={selected ? '#26C6DA' : isTv19 ? '#1565c0' : '#000000'}
+            emissiveIntensity={selected ? 0.22 : isTv19 ? 0.15 : 0}
           />
           {selected && <Edges color="#00E5FF" />}
         </mesh>
@@ -173,7 +189,7 @@ export const SceneObjectMesh = ({
         </Fragment>
       )}
 
-      {product.accentColor && !isShelf && !isArch && (
+      {product.accentColor && !isShelf && !isHangable && !isArch && (
         <mesh
           position={[0, 0, product.dimensions.depth / 2 + accentSurfaceOffset]}
           renderOrder={2}

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { PRODUCTS, PRODUCT_BY_ID } from '../data/products';
-import type { GraphicCrop, SceneObject, WizardStep } from '../types';
+import type { BoothLegFootKind, GraphicCrop, SceneObject, WizardStep } from '../types';
+import { countStructuralFramesForBooth } from '../utils/booth';
 import { GHOST_SHELF_POSITIONS } from '../utils/constants';
 import { applyEdgeSnap, getFootprint, intersectsXZ, isWithinBounds, snappedXZ } from '../utils/geometry';
 
@@ -63,9 +64,21 @@ interface WizardState {
     rotation: number,
     excludeId?: string | string[],
   ) => boolean;
+  boothLegCountOverride: number | null;
+  boothStabilizerCountOverride: number | null;
+  boothLegFootKind: BoothLegFootKind;
+  boothSecurityRiskAccepted: boolean;
+  setBoothLegCountOverride: (value: number | null) => void;
+  setBoothStabilizerCountOverride: (value: number | null) => void;
+  setBoothLegFootKind: (kind: BoothLegFootKind) => void;
+  acceptBoothSecurityRisk: () => void;
 }
 
 const isShelf = (productId: string) => PRODUCT_BY_ID[productId].category === 'shelf';
+const attachesToFrameSlot = (productId: string) => {
+  const c = PRODUCT_BY_ID[productId]?.category;
+  return c === 'shelf' || c === 'hangable';
+};
 const canSnapProduct = (productId: string) =>
   ['frame-96', 'frame-48', 'frame-22', 'frame-counter-96', 'arch-96'].includes(productId);
 const GRAPHIC_SELECTION_LIMIT = 10;
@@ -207,6 +220,10 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   canRedo: false,
   historyPast: [],
   historyFuture: [],
+  boothLegCountOverride: null,
+  boothStabilizerCountOverride: null,
+  boothLegFootKind: 'pad',
+  boothSecurityRiskAccepted: false,
 
   addObject: (productId, x, z, rotation = 0) => {
     const product = PRODUCT_BY_ID[productId];
@@ -239,14 +256,14 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
   addShelfToFrame: (productId, frameId, slotIndex) => {
     const frame = get().sceneObjects.find((obj) => obj.instanceId === frameId);
-    const shelf = PRODUCT_BY_ID[productId];
-    if (!frame || !shelf || shelf.category !== 'shelf') return;
+    const slotProduct = PRODUCT_BY_ID[productId];
+    if (!frame || !slotProduct || !attachesToFrameSlot(productId)) return;
     const occupied = get().getOccupiedSlots(frameId);
     if (occupied.includes(slotIndex)) return;
     const frameProduct = PRODUCT_BY_ID[frame.productId];
-    if (!shelf.attachableTo?.includes(frame.productId)) return;
+    if (!slotProduct.attachableTo?.includes(frame.productId)) return;
 
-    const frameFrontOffset = frameProduct.dimensions.depth / 2 + shelf.dimensions.depth / 2;
+    const frameFrontOffset = frameProduct.dimensions.depth / 2 + slotProduct.dimensions.depth / 2;
     const x = frame.position[0] + Math.sin(frame.rotation) * frameFrontOffset;
     const z = frame.position[2] + Math.cos(frame.rotation) * frameFrontOffset;
 
@@ -271,20 +288,21 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     const state = get();
     const obj = state.sceneObjects.find((item) => item.instanceId === id);
     if (!obj) return;
-    if (!isShelf(obj.productId) && state.currentStep !== 1) return;
-    if (isShelf(obj.productId) && state.currentStep !== 2) return;
+    if (!attachesToFrameSlot(obj.productId) && state.currentStep !== 1) return;
+    if (attachesToFrameSlot(obj.productId) && state.currentStep !== 2) return;
 
     const { x: sx, z: sz } = snappedXZ(x, z);
-    const snapped = state.portModeEnabled
-      ? applyEdgeSnap(obj.productId, sx, sz, obj.rotation, state.sceneObjects, id)
-      : { x: sx, z: sz };
+    const snapped =
+      state.portModeEnabled && state.currentStep === 1
+        ? applyEdgeSnap(obj.productId, sx, sz, obj.rotation, state.sceneObjects, id)
+        : { x: sx, z: sz };
 
     const linkedIds =
-      !isShelf(obj.productId) && !state.portModeEnabled
+      !attachesToFrameSlot(obj.productId) && !state.portModeEnabled && state.currentStep === 1
         ? getPortLinkedComponent(id, state.portLinks)
         : new Set<string>([id]);
 
-    const moveAsGroup = !isShelf(obj.productId) && linkedIds.size > 1;
+    const moveAsGroup = !attachesToFrameSlot(obj.productId) && linkedIds.size > 1;
     const deltaX = snapped.x - obj.position[0];
     const deltaZ = snapped.z - obj.position[2];
 
@@ -326,7 +344,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
     const movedFrameIds = new Set(
       [...movedById.values()]
-        .filter((item) => !isShelf(item.productId))
+        .filter((item) => !attachesToFrameSlot(item.productId))
         .map((item) => item.instanceId),
     );
 
@@ -334,7 +352,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       if (movedById.has(item.instanceId)) {
         return movedById.get(item.instanceId) as SceneObject;
       }
-      if (item.attachedToFrameId && movedFrameIds.has(item.attachedToFrameId) && isShelf(item.productId)) {
+      if (item.attachedToFrameId && movedFrameIds.has(item.attachedToFrameId) && attachesToFrameSlot(item.productId)) {
         const frame = movedById.get(item.attachedToFrameId);
         if (!frame) return item;
         const placement = getAttachedShelfPlacement(frame, item);
@@ -356,7 +374,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   rotateObject: (id) => {
     const state = get();
     const obj = state.sceneObjects.find((item) => item.instanceId === id);
-    if (!obj || isShelf(obj.productId)) return;
+    if (!obj || attachesToFrameSlot(obj.productId)) return;
     if (state.currentStep !== 1) return;
     const nextRotation = ((obj.rotation + Math.PI / 2) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
     if (!state.canPlaceAt(obj.productId, obj.position[0], obj.position[2], nextRotation, id)) return;
@@ -368,7 +386,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       if (item.instanceId === id) {
         return rotatedFrame;
       }
-      if (item.attachedToFrameId === id && isShelf(item.productId)) {
+      if (item.attachedToFrameId === id && attachesToFrameSlot(item.productId)) {
         const placement = getAttachedShelfPlacement(rotatedFrame, item);
         return {
           ...item,
@@ -389,8 +407,8 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     const state = get();
     const target = state.sceneObjects.find((item) => item.instanceId === id);
     if (!target) return;
-    if (!isShelf(target.productId) && state.currentStep !== 1) return;
-    if (isShelf(target.productId) && state.currentStep !== 2) return;
+    if (!attachesToFrameSlot(target.productId) && state.currentStep !== 1) return;
+    if (attachesToFrameSlot(target.productId) && state.currentStep !== 2) return;
     const next = state.sceneObjects.filter((item) => item.instanceId !== id && item.attachedToFrameId !== id);
     set((prev) => {
       const nextGraphics = { ...prev.frameGraphics };
@@ -410,7 +428,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   duplicateObject: (id, x, z) => {
     const state = get();
     const obj = state.sceneObjects.find((item) => item.instanceId === id);
-    if (!obj || isShelf(obj.productId)) return;
+    if (!obj || attachesToFrameSlot(obj.productId)) return;
     if (state.currentStep !== 1) return;
     get().addObject(obj.productId, x, z, obj.rotation);
   },
@@ -609,7 +627,29 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       graphicsAssets: {},
       modelContextMenu: null,
       portLinks: [],
+      boothLegCountOverride: null,
+      boothStabilizerCountOverride: null,
+      boothLegFootKind: 'pad',
+      boothSecurityRiskAccepted: false,
     })),
+
+  setBoothLegCountOverride: (value) =>
+    set((state) => {
+      const structural = countStructuralFramesForBooth(state.sceneObjects);
+      const rec = structural * 2;
+      const effective = value === null ? rec : value;
+      const meetsRecommended = value === null || effective >= rec;
+      return {
+        boothLegCountOverride: value,
+        boothSecurityRiskAccepted: meetsRecommended ? false : state.boothSecurityRiskAccepted,
+      };
+    }),
+
+  setBoothStabilizerCountOverride: (value) => set({ boothStabilizerCountOverride: value }),
+
+  setBoothLegFootKind: (kind) => set({ boothLegFootKind: kind }),
+
+  acceptBoothSecurityRisk: () => set({ boothSecurityRiskAccepted: true }),
 
   undo: () =>
     set((state) => {
@@ -669,13 +709,13 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
   canPlaceAt: (productId, x, z, rotation, excludeId) => {
     const product = PRODUCT_BY_ID[productId];
-    if (!product || product.category === 'shelf') return true;
+    if (!product || attachesToFrameSlot(productId)) return true;
     const footprint = getFootprint(productId, rotation);
     if (!isWithinBounds(x, z, footprint.width, footprint.depth)) return false;
     const nextBox = { x, z, width: footprint.width, depth: footprint.depth };
     const excludeIds = Array.isArray(excludeId) ? new Set(excludeId) : new Set(excludeId ? [excludeId] : []);
     return get()
-      .sceneObjects.filter((obj) => !excludeIds.has(obj.instanceId) && !isShelf(obj.productId))
+      .sceneObjects.filter((obj) => !excludeIds.has(obj.instanceId) && !attachesToFrameSlot(obj.productId))
       .every((obj) => {
         const fp = getFootprint(obj.productId, obj.rotation);
         const box = {

@@ -8,6 +8,8 @@ export const Toolbar = () => {
   const canRedo = useWizardStore((s) => s.canRedo);
   const portModeEnabled = useWizardStore((s) => s.portModeEnabled);
   const togglePortMode = useWizardStore((s) => s.togglePortMode);
+  const currentStep = useWizardStore((s) => s.currentStep);
+  const portStep1Only = currentStep !== 1;
 
   return (
     <div className="toolbar">
@@ -18,7 +20,11 @@ export const Toolbar = () => {
         Redo
       </button>
       <button onClick={clearScene}>Clear</button>
-      <button onClick={togglePortMode}>
+      <button
+        onClick={togglePortMode}
+        disabled={portStep1Only}
+        title={portStep1Only ? 'Port mode is only available on step 1 (Shape your booth)' : undefined}
+      >
         Port mode: {portModeEnabled ? 'ON' : 'OFF'}
       </button>
     </div>
