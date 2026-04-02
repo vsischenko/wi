@@ -429,6 +429,47 @@ body,
   font-size: 14px;
 }
 
+.booth-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #f2c97a;
+  background: #fff7e6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.booth-info-badge {
+  font-size: 12px;
+  font-weight: 800;
+  color: #c62828;
+  letter-spacing: 0.02em;
+}
+
+.options-accordion-btn {
+  border: 1px solid #90caf9;
+  background: #e3f2fd;
+  color: #1565c0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.options-accordion-btn.active {
+  border-color: #1976d2;
+  background: #eaf3ff;
+  color: #1976d2;
+}
+
+.booth-accordion-panel {
+  margin-top: -2px;
+}
+
 .booth-linkish {
   min-width: auto !important;
   height: auto !important;
@@ -778,6 +819,17 @@ body,
 .installed-item.active {
   border-color: #1976d2;
   background: #eaf3ff;
+}
+
+.installed-item--info {
+  cursor: default;
+  border-style: dashed;
+  border-color: #cfd8e3;
+}
+
+.installed-legs-sub {
+  font-size: 11px;
+  color: #607d8b;
 }
 
 .installed-item__main {

@@ -107,6 +107,8 @@ export const RightPanel = () => {
   const [estimateHidden, setEstimateHidden] = useState(true);
   const [legRiskModalOpen, setLegRiskModalOpen] = useState(false);
   const [pendingLegCount, setPendingLegCount] = useState<number | null>(null);
+  const [legsOptionsOpen, setLegsOptionsOpen] = useState(false);
+  const [stabilizersOptionsOpen, setStabilizersOptionsOpen] = useState(false);
   const [catalogTab, setCatalogTab] = useState<CatalogTab>('frames');
   const [favoriteProductIds, setFavoriteProductIds] = useState<string[]>([
     'frame-96',
@@ -220,6 +222,28 @@ export const RightPanel = () => {
     if (!['shelf', 'hangable', 'counter', 'frame-counter', 'storage', 'closet'].includes(cat)) return null;
     return selectedObject;
   }, [currentStep, selectedObject]);
+
+  const boothFootKindLabel = (kind: BoothLegFootKind) => (kind === 'pad' ? 'Pad' : kind === 'single' ? 'Single-dir' : 'Double-dir');
+
+  const frameUiOrder = useMemo(() => {
+    // Deterministic ordering used for UI numbering and leg distribution.
+    return frames.slice().sort(
+      (a, b) => a.position[2] - b.position[2] || a.position[0] - b.position[0],
+    );
+  }, [frames]);
+
+  const legsCountByFrameInstanceId = useMemo(() => {
+    if (currentStep !== 2) return {};
+    const n = frameUiOrder.length;
+    if (n === 0) return {};
+    const base = Math.floor(effectiveLegs / n);
+    const rem = effectiveLegs % n;
+    const map: Record<string, number> = {};
+    frameUiOrder.forEach((f, idx) => {
+      map[f.instanceId] = base + (idx < rem ? 1 : 0);
+    });
+    return map;
+  }, [currentStep, frameUiOrder, effectiveLegs]);
   const shelfColorLabel = (color: 'white' | 'black' | 'wood' | undefined) =>
     color === 'black' ? 'Black' : color === 'wood' ? 'Wood' : 'White';
   const countertopColorLabel = (color: 'white' | 'black' | 'wood' | undefined) =>
@@ -459,65 +483,101 @@ export const RightPanel = () => {
 
             <section className="booth-section">
               <div className="booth-section__title">Must have (security)</div>
-              <div className="booth-must-block">
-                <div className="booth-must-block__label">Legs (8 mm)</div>
-                <p className="booth-must-block__hint">
-                  Recommended: {recLegs} (2 per frame/arch; counters excluded). Default foot: pad — change type below.
-                </p>
-                <div className="booth-counter-row">
-                  <button type="button" onClick={() => requestLegCount(effectiveLegs - 1)} aria-label="Fewer legs">
-                    −
-                  </button>
-                  <span className="booth-counter-row__value">{effectiveLegs}</span>
-                  <button type="button" onClick={() => requestLegCount(effectiveLegs + 1)} aria-label="More legs">
-                    +
-                  </button>
-                  <button type="button" className="booth-linkish" onClick={resetLegsToRecommended}>
-                    Use recommended
-                  </button>
-                </div>
-                {effectiveLegs < recLegs ? (
-                  <div className="booth-warning-inline">
-                    Below recommended. {boothSecurityRiskAccepted ? 'Risk acknowledged for this configuration.' : ''}
-                  </div>
-                ) : null}
-                <div className="booth-foot-kind">
-                  <span className="booth-foot-kind__label">Foot type</span>
-                  <div className="option-buttons">
-                    {(
-                      [
-                        ['pad', 'Pad'],
-                        ['single', 'Single-dir'],
-                        ['double', 'Double-dir'],
-                      ] as const
-                    ).map(([kind, label]) => (
-                      <button
-                        key={kind}
-                        type="button"
-                        className={boothLegFootKind === kind ? 'active' : ''}
-                        onClick={() => setBoothLegFootKind(kind as BoothLegFootKind)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="booth-info-row">
+                <div className="booth-info-badge">{effectiveLegs} FEETS</div>
+                <button
+                  type="button"
+                  className={`options-accordion-btn${legsOptionsOpen ? ' active' : ''}`}
+                  onClick={() => setLegsOptionsOpen((v) => !v)}
+                >
+                  Options
+                </button>
               </div>
-              <div className="booth-must-block">
-                <div className="booth-must-block__label">Frame stabilizers (calculated)</div>
-                <p className="booth-must-block__hint">
-                  Not shown on scene in this prototype. Recommended: {recStabilizers} (simple count from frames).
-                </p>
-                <div className="booth-counter-row">
-                  <button type="button" onClick={() => adjustStabilizers(-1)} aria-label="Fewer stabilizers">
-                    −
-                  </button>
-                  <span className="booth-counter-row__value">{effectiveStabilizers}</span>
-                  <button type="button" onClick={() => adjustStabilizers(1)} aria-label="More stabilizers">
-                    +
-                  </button>
+
+              {legsOptionsOpen && (
+                <div className="booth-must-block booth-accordion-panel">
+                  <div className="booth-must-block__label">Legs (8 mm)</div>
+                  <p className="booth-must-block__hint">
+                    Recommended: {recLegs} (2 per frame/arch; counters excluded). Default foot: pad — change type below.
+                  </p>
+                  <div className="booth-counter-row">
+                    <button
+                      type="button"
+                      onClick={() => requestLegCount(effectiveLegs - 1)}
+                      aria-label="Fewer legs"
+                    >
+                      −
+                    </button>
+                    <span className="booth-counter-row__value">{effectiveLegs}</span>
+                    <button
+                      type="button"
+                      onClick={() => requestLegCount(effectiveLegs + 1)}
+                      aria-label="More legs"
+                    >
+                      +
+                    </button>
+                    <button type="button" className="booth-linkish" onClick={resetLegsToRecommended}>
+                      Use recommended
+                    </button>
+                  </div>
+                  {effectiveLegs < recLegs ? (
+                    <div className="booth-warning-inline">
+                      Below recommended.{' '}
+                      {boothSecurityRiskAccepted ? 'Risk acknowledged for this configuration.' : ''}
+                    </div>
+                  ) : null}
+                  <div className="booth-foot-kind">
+                    <span className="booth-foot-kind__label">Foot type</span>
+                    <div className="option-buttons">
+                      {(
+                        [
+                          ['pad', 'Pad'],
+                          ['single', 'Single-dir'],
+                          ['double', 'Double-dir'],
+                        ] as const
+                      ).map(([kind, label]) => (
+                        <button
+                          key={kind}
+                          type="button"
+                          className={boothLegFootKind === kind ? 'active' : ''}
+                          onClick={() => setBoothLegFootKind(kind as BoothLegFootKind)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              <div className="booth-info-row">
+                <div className="booth-info-badge">{effectiveStabilizers} FRAME STABILIZER</div>
+                <button
+                  type="button"
+                  className={`options-accordion-btn${stabilizersOptionsOpen ? ' active' : ''}`}
+                  onClick={() => setStabilizersOptionsOpen((v) => !v)}
+                >
+                  Options
+                </button>
               </div>
+
+              {stabilizersOptionsOpen && (
+                <div className="booth-must-block booth-accordion-panel">
+                  <div className="booth-must-block__label">Frame stabilizers (calculated)</div>
+                  <p className="booth-must-block__hint">
+                    Not shown on scene in this prototype. Recommended: {recStabilizers} (simple count from frames).
+                  </p>
+                  <div className="booth-counter-row">
+                    <button type="button" onClick={() => adjustStabilizers(-1)} aria-label="Fewer stabilizers">
+                      −
+                    </button>
+                    <span className="booth-counter-row__value">{effectiveStabilizers}</span>
+                    <button type="button" onClick={() => adjustStabilizers(1)} aria-label="More stabilizers">
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
             </section>
 
             {selectedMakeItNicerEditObject &&
@@ -663,11 +723,19 @@ export const RightPanel = () => {
                           Front {frontUsed}/3 · Top {topUsed}
                         </span>
                       </div>
-                      {items.length === 0 ? (
-                        <div className="installed-empty frame-install-group__empty">Nothing on this frame yet.</div>
-                      ) : (
-                        <div className="installed-list frame-install-group__list">
-                          {items.map((item) => {
+                      <div className="installed-list frame-install-group__list">
+                        <div className="installed-item installed-item--info" role="note" aria-label="Legs">
+                          <div className="installed-item__main">
+                            <span>Legs</span>
+                            <span>{legsCountByFrameInstanceId[frame.instanceId] ?? 0}</span>
+                          </div>
+                          <div className="installed-legs-sub">Foot: {boothFootKindLabel(boothLegFootKind)}</div>
+                        </div>
+
+                        {items.length === 0 ? (
+                          <div className="installed-empty frame-install-group__empty">Nothing on this frame yet.</div>
+                        ) : (
+                          items.map((item) => {
                             const product = PRODUCT_BY_ID[item.productId];
                             const expanded = selectedObjectId === item.instanceId;
                             const showRemove = currentStep === 2 && !!item.attachedToFrameId;
@@ -750,9 +818,9 @@ export const RightPanel = () => {
                                 )}
                               </div>
                             );
-                          })}
-                        </div>
-                      )}
+                          })
+                        )}
+                      </div>
                     </div>
                   );
                 })
