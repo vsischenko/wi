@@ -1,7 +1,7 @@
 import { Edges, useTexture } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { Fragment, useMemo, useRef } from 'react';
-import { ClampToEdgeWrapping, Object3D, SRGBColorSpace } from 'three';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ClampToEdgeWrapping, LinearFilter, Object3D, SRGBColorSpace, VideoTexture } from 'three';
 import type { Mesh } from 'three';
 import { PRODUCT_BY_ID } from '../../data/products';
 import { useWizardStore } from '../../store/useWizardStore';
@@ -35,8 +35,60 @@ export const SceneObjectMesh = ({
   const isTvAnimated = ['tv-19', 'tv-96-16x9'].includes(object.productId);
   const isTvInstalled = isTvAnimated && !!object.attachedToFrameId;
   const tvMeshRef = useRef<Mesh>(null);
+  const tvVideoElRef = useRef<HTMLVideoElement | null>(null);
+  const [tvVideoTexture, setTvVideoTexture] = useState<VideoTexture | null>(null);
   const lightTargetRef = useRef<Object3D>(null);
   const lightSpotRef = useRef<import('three').SpotLight>(null);
+  useEffect(() => {
+    if (!isTvAnimated) {
+      setTvVideoTexture(null);
+      tvVideoElRef.current = null;
+      return;
+    }
+    const video = document.createElement('video');
+    video.src = '/media/tv-loop.mp4';
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.crossOrigin = 'anonymous';
+    tvVideoElRef.current = video;
+
+    const texture = new VideoTexture(video);
+    texture.colorSpace = SRGBColorSpace;
+    texture.minFilter = LinearFilter;
+    texture.magFilter = LinearFilter;
+    texture.generateMipmaps = false;
+    setTvVideoTexture(texture);
+
+    const tryPlay = () => {
+      if (!isTvInstalled) return;
+      void video.play().catch(() => {});
+    };
+    video.addEventListener('canplay', tryPlay);
+    video.load();
+    tryPlay();
+
+    return () => {
+      video.removeEventListener('canplay', tryPlay);
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      tvVideoElRef.current = null;
+      texture.dispose();
+      setTvVideoTexture(null);
+    };
+  }, [isTvAnimated, isTvInstalled]);
+
+  useEffect(() => {
+    if (!isTvAnimated || !tvVideoElRef.current) return;
+    if (isTvInstalled) {
+      void tvVideoElRef.current.play().catch(() => {});
+      return;
+    }
+    tvVideoElRef.current.pause();
+  }, [isTvAnimated, isTvInstalled]);
+
   useFrame(({ clock }) => {
     if (isMountedLight && lightSpotRef.current && lightTargetRef.current) {
       lightSpotRef.current.target = lightTargetRef.current;
@@ -123,17 +175,25 @@ export const SceneObjectMesh = ({
       }}
     >
       {!isArch ? (
-        <mesh ref={isTvAnimated ? tvMeshRef : undefined}>
-          <boxGeometry args={[product.dimensions.width, product.dimensions.height, product.dimensions.depth]} />
-          <meshStandardMaterial
-            color={isShelf ? shelfColorHex : isHangable ? product.color : product.color}
-            transparent
-            opacity={opacity}
-            emissive={selected ? '#26C6DA' : isTvAnimated ? '#1565c0' : '#000000'}
-            emissiveIntensity={selected ? 0.22 : isTvAnimated ? 0.15 : 0}
-          />
-          {selected && <Edges color="#00E5FF" />}
-        </mesh>
+        <group>
+          <mesh ref={isTvAnimated ? tvMeshRef : undefined}>
+            <boxGeometry args={[product.dimensions.width, product.dimensions.height, product.dimensions.depth]} />
+            <meshStandardMaterial
+              color={isShelf ? shelfColorHex : isHangable ? product.color : product.color}
+              transparent
+              opacity={opacity}
+              emissive={selected ? '#26C6DA' : isTvAnimated ? '#1565c0' : '#000000'}
+              emissiveIntensity={selected ? 0.22 : isTvAnimated ? 0.15 : 0}
+            />
+            {selected && <Edges color="#00E5FF" />}
+          </mesh>
+          {isTvAnimated && tvVideoTexture && (
+            <mesh position={[0, 0, product.dimensions.depth / 2 + 0.08]} renderOrder={3}>
+              <planeGeometry args={[product.dimensions.width * 0.92, product.dimensions.height * 0.9]} />
+              <meshBasicMaterial map={tvVideoTexture} toneMapped={false} />
+            </mesh>
+          )}
+        </group>
       ) : (
         <mesh>
           <boxGeometry
