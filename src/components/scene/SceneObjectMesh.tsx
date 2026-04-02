@@ -39,6 +39,7 @@ export const SceneObjectMesh = ({
   const tvMeshRef = useRef<Mesh>(null);
   const tvVideoElRef = useRef<HTMLVideoElement | null>(null);
   const [tvVideoTexture, setTvVideoTexture] = useState<VideoTexture | null>(null);
+  const pulseMatRef = useRef<import('three').MeshBasicMaterial | null>(null);
   const lightTargetRef = useRef<Object3D>(null);
   const lightSpotRef = useRef<import('three').SpotLight>(null);
   useEffect(() => {
@@ -96,6 +97,11 @@ export const SceneObjectMesh = ({
   }, [isTvAnimated, isTvInstalled, tvMuted, tvVolume]);
 
   useFrame(({ clock }) => {
+    if (pulseMatRef.current) {
+      const t = clock.elapsedTime;
+      // Gentle pulse for selected visual surfaces in Dressing.
+      pulseMatRef.current.opacity = 0.11 + (0.5 + 0.5 * Math.sin(t * 4.2)) * 0.17;
+    }
     if (isMountedLight && lightSpotRef.current && lightTargetRef.current) {
       lightSpotRef.current.target = lightTargetRef.current;
       lightSpotRef.current.target.updateMatrixWorld();
@@ -260,6 +266,24 @@ export const SceneObjectMesh = ({
               />
             )}
           </mesh>
+          {selected && (
+            <mesh
+              position={[0, 0, baseFrameProduct.dimensions.depth / 2 + accentSurfaceOffset + 0.12]}
+              renderOrder={4}
+              raycast={() => null}
+            >
+              <planeGeometry
+                args={[baseFrameProduct.dimensions.width * 0.9, baseFrameProduct.dimensions.height * 0.9]}
+              />
+              <meshBasicMaterial
+                ref={pulseMatRef}
+                color="#26C6DA"
+                transparent
+                opacity={0.18}
+                depthWrite={false}
+              />
+            </mesh>
+          )}
           {[-baseFrameProduct.dimensions.width / 3, 0, baseFrameProduct.dimensions.width / 3].map((x) => (
             <mesh key={x} position={[x, 0, baseFrameProduct.dimensions.depth / 2 + 0.4]}>
               <boxGeometry args={[0.7, baseFrameProduct.dimensions.height * 0.95, 0.7]} />
@@ -288,33 +312,51 @@ export const SceneObjectMesh = ({
       )}
 
       {product.accentColor && !isShelf && !isHangable && !isArch && (
-        <mesh
-          position={[0, 0, product.dimensions.depth / 2 + accentSurfaceOffset]}
-          renderOrder={2}
-        >
-          <planeGeometry args={[product.dimensions.width * 0.9, product.dimensions.height * 0.9]} />
-          {graphicTexture ? (
-            <meshBasicMaterial
-              color="#ffffff"
-              map={graphicTexture}
-              toneMapped={false}
-              polygonOffset
-              polygonOffsetFactor={-2}
-              polygonOffsetUnits={-2}
-            />
-          ) : (
-            <meshStandardMaterial
-              color={product.accentColor}
-              transparent
-              opacity={opacity}
-              emissive={selected ? '#26C6DA' : '#000000'}
-              emissiveIntensity={selected ? 0.18 : 0}
-              polygonOffset
-              polygonOffsetFactor={-2}
-              polygonOffsetUnits={-2}
-            />
+        <group>
+          <mesh
+            position={[0, 0, product.dimensions.depth / 2 + accentSurfaceOffset]}
+            renderOrder={2}
+          >
+            <planeGeometry args={[product.dimensions.width * 0.9, product.dimensions.height * 0.9]} />
+            {graphicTexture ? (
+              <meshBasicMaterial
+                color="#ffffff"
+                map={graphicTexture}
+                toneMapped={false}
+                polygonOffset
+                polygonOffsetFactor={-2}
+                polygonOffsetUnits={-2}
+              />
+            ) : (
+              <meshStandardMaterial
+                color={product.accentColor}
+                transparent
+                opacity={opacity}
+                emissive={selected ? '#26C6DA' : '#000000'}
+                emissiveIntensity={selected ? 0.18 : 0}
+                polygonOffset
+                polygonOffsetFactor={-2}
+                polygonOffsetUnits={-2}
+              />
+            )}
+          </mesh>
+          {selected && (
+            <mesh
+              position={[0, 0, product.dimensions.depth / 2 + accentSurfaceOffset + 0.12]}
+              renderOrder={4}
+              raycast={() => null}
+            >
+              <planeGeometry args={[product.dimensions.width * 0.9, product.dimensions.height * 0.9]} />
+              <meshBasicMaterial
+                ref={pulseMatRef}
+                color="#26C6DA"
+                transparent
+                opacity={0.18}
+                depthWrite={false}
+              />
+            </mesh>
           )}
-        </mesh>
+        </group>
       )}
 
       {isFrameCounter && (

@@ -193,6 +193,7 @@ export const SharedScene = ({
               const product = PRODUCT_BY_ID[object.productId];
               const printable = !!product.accentColor || product.category === 'arch';
               if (printable) {
+                clearGraphicFrameSelection();
                 toggleGraphicFrameSelection(object.instanceId);
               }
               return;

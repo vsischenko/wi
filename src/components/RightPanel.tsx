@@ -9,7 +9,7 @@ import {
   recommendedLegCount,
   recommendedStabilizerCount,
 } from '../utils/booth';
-import { getGraphicSurfaceSizeCm } from '../utils/graphics';
+import { getGraphicSurfaceSizeCm, isGraphicSurfaceProduct } from '../utils/graphics';
 
 const STEP_META = {
   1: {
@@ -44,6 +44,8 @@ const getCatalogTabForProduct = (productId: string): CatalogTab | null => {
   if (category === 'arch') return 'arches';
   return null;
 };
+
+const fmtM2 = (value: number) => `${value.toFixed(2)} m2`;
 
 function BoothSecurityModal({
   open,
@@ -92,9 +94,11 @@ export const RightPanel = () => {
   const sceneObjects = useWizardStore((s) => s.sceneObjects);
   const selectedObjectId = useWizardStore((s) => s.selectedObjectId);
   const selectedGraphicFrameIds = useWizardStore((s) => s.selectedGraphicFrameIds);
+  const toggleGraphicFrameSelection = useWizardStore((s) => s.toggleGraphicFrameSelection);
   const clearGraphicFrameSelection = useWizardStore((s) => s.clearGraphicFrameSelection);
   const getOccupiedSlots = useWizardStore((s) => s.getOccupiedSlots);
   const frameGraphics = useWizardStore((s) => s.frameGraphics);
+  const graphicsAssets = useWizardStore((s) => s.graphicsAssets);
   const boothLegCountOverride = useWizardStore((s) => s.boothLegCountOverride);
   const boothStabilizerCountOverride = useWizardStore((s) => s.boothStabilizerCountOverride);
   const boothLegFootKind = useWizardStore((s) => s.boothLegFootKind);
@@ -300,6 +304,34 @@ export const RightPanel = () => {
       total: structureTotal + accessoriesTotal + graphicsPrice,
     };
   }, [frameGraphics, sceneObjects]);
+
+  const dressingVisualProducts = useMemo(() => {
+    const printable = sceneObjects.filter((obj) => isGraphicSurfaceProduct(obj.productId));
+    const sorted = printable
+      .slice()
+      .sort((a, b) => a.position[2] - b.position[2] || a.position[0] - b.position[0]);
+    const byProductIdCounter = new Map<string, number>();
+    return sorted.map((obj) => {
+      const product = PRODUCT_BY_ID[obj.productId];
+      const index = (byProductIdCounter.get(obj.productId) ?? 0) + 1;
+      byProductIdCounter.set(obj.productId, index);
+      const surface = getGraphicSurfaceSizeCm(obj.productId);
+      const areaM2 = (surface.width * surface.height) / 10000;
+      const graphic = frameGraphics[obj.instanceId];
+      return {
+        instanceId: obj.instanceId,
+        title: `${product.name}_${index}`,
+        sizeLabel: `${surface.width.toFixed(0)} x ${surface.height.toFixed(0)} cm`,
+        areaM2,
+        previewUrl: graphic ? graphicsAssets[graphic.assetId] : undefined,
+      };
+    });
+  }, [frameGraphics, graphicsAssets, sceneObjects]);
+
+  const selectGraphicSurfaceFromPanel = (instanceId: string) => {
+    clearGraphicFrameSelection();
+    toggleGraphicFrameSelection(instanceId);
+  };
 
   return (
     <aside className="right-panel">
@@ -830,9 +862,45 @@ export const RightPanel = () => {
         ) : (
           <div className="graphics-step-panel">
             <div className="graphics-step-help">
-              Click advertising surfaces in desired order (up to 10), then open editor and apply one image.
+              Products on scene with printable visuals. Click a visual below to highlight it in scene.
             </div>
-            <div className="graphics-step-meta">Selected frames: {selectedGraphicFrameIds.length}</div>
+            <div className="graphics-step-meta">Selected visual: {selectedGraphicFrameIds.length}</div>
+            <div className="dressing-visual-list">
+              {dressingVisualProducts.length === 0 ? (
+                <div className="installed-empty">
+                  No printable products on scene yet. Add frame/counter/arch in step 1.
+                </div>
+              ) : (
+                dressingVisualProducts.map((item) => {
+                  const active = selectedGraphicFrameIds.includes(item.instanceId);
+                  return (
+                    <button
+                      key={item.instanceId}
+                      type="button"
+                      className={`dressing-visual-item${active ? ' active' : ''}`}
+                      onClick={() => selectGraphicSurfaceFromPanel(item.instanceId)}
+                    >
+                      <div className="dressing-visual-item__preview-wrap">
+                        {item.previewUrl ? (
+                          <img
+                            src={item.previewUrl}
+                            alt={item.title}
+                            className="dressing-visual-item__preview"
+                          />
+                        ) : (
+                          <div className="dressing-visual-item__placeholder">No image</div>
+                        )}
+                      </div>
+                      <div className="dressing-visual-item__meta">
+                        <div className="dressing-visual-item__title">{item.title}</div>
+                        <div className="dressing-visual-item__size">{item.sizeLabel}</div>
+                        <div className="dressing-visual-item__area">{fmtM2(item.areaM2)}</div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
             <div className="graphics-step-actions">
               <button onClick={() => setGraphicsModalOpen(true)} disabled={selectedGraphicFrameIds.length === 0}>
                 Open Graphics Editor
