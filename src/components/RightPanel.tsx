@@ -195,6 +195,25 @@ export const RightPanel = () => {
       ),
     }));
   }, [currentStep, frames, sceneObjects]);
+
+  const frame96DisplayNameByInstanceId = useMemo(() => {
+    // Auto-number identical Frame 96 objects for stable, non-overlapping Installed UI.
+    // Ordering by Z then X keeps names deterministic across re-renders.
+    const frame96 = frames
+      .filter((f) => f.productId === 'frame-96')
+      .slice()
+      .sort(
+        (a, b) =>
+          a.position[2] - b.position[2] || // Z
+          a.position[0] - b.position[0], // X
+      );
+    const map: Record<string, string> = {};
+    frame96.forEach((f, idx) => {
+      map[f.instanceId] = `Frame 96_${idx + 1}`;
+    });
+    return map;
+  }, [frames]);
+
   const selectedMakeItNicerEditObject = useMemo(() => {
     if (currentStep !== 2 || !selectedObject) return null;
     const cat = PRODUCT_BY_ID[selectedObject.productId].category;
@@ -634,7 +653,8 @@ export const RightPanel = () => {
                     >
                       <div className="frame-install-group__header">
                         <span className="frame-install-group__name">
-                          {PRODUCT_BY_ID[frame.productId].name}
+                          {frame96DisplayNameByInstanceId[frame.instanceId] ??
+                            PRODUCT_BY_ID[frame.productId].name}
                         </span>
                         <span className="frame-install-group__slots">
                           Front {frontUsed}/3 · Top {topUsed}
