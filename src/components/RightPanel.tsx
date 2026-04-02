@@ -389,6 +389,75 @@ export const RightPanel = () => {
         ) : currentStep === 2 ? (
           <div className="graphics-step-panel booth-step">
             <section className="booth-section">
+              <div className="booth-section__title">Nice to have</div>
+              <p className="booth-section__intro">
+                Shelves, displays, brochure holders. Pick a product, then a green slot on a compatible frame.
+              </p>
+              <div className="product-list product-list--compact">
+                {niceProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    className={`product-card ${draggedProductId === product.id ? 'selected' : ''}`}
+                    onClick={() => {
+                      if (draggedProductId === product.id) {
+                        endDrag();
+                      } else {
+                        startDrag(product.id);
+                      }
+                    }}
+                    title="Toggle placement; green slots appear on all compatible frames"
+                  >
+                    <div className="product-card-content">
+                      <div className="product-price-badge">{product.priceEur.toFixed(0)} EUR</div>
+                      <ProductPreview3D productId={product.id} />
+                      <div>
+                        <div className="product-name">{product.name}</div>
+                        <div className="product-meta">
+                          {product.dimensions.width}×{product.dimensions.height}×{product.dimensions.depth} cm
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="booth-section">
+              <div className="booth-section__title">Advised to have</div>
+              <p className="booth-section__intro">
+                Top-mounted lighting only: green markers sit on the <strong>upper edge</strong> of each frame (not on
+                the front graphic surface). Click a product, then pick a slot.
+              </p>
+              <div className="product-list product-list--compact">
+                {advisedProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    className={`product-card ${draggedProductId === product.id ? 'selected' : ''}`}
+                    onClick={() => {
+                      if (draggedProductId === product.id) {
+                        endDrag();
+                      } else {
+                        startDrag(product.id);
+                      }
+                    }}
+                    title="Toggle placement; all compatible frames show slots"
+                  >
+                    <div className="product-card-content">
+                      <div className="product-price-badge">{product.priceEur.toFixed(0)} EUR</div>
+                      <ProductPreview3D productId={product.id} />
+                      <div>
+                        <div className="product-name">{product.name}</div>
+                        <div className="product-meta">
+                          {product.dimensions.width}×{product.dimensions.height}×{product.dimensions.depth} cm
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="booth-section">
               <div className="booth-section__title">Must have (security)</div>
               <div className="booth-must-block">
                 <div className="booth-must-block__label">Legs (8 mm)</div>
@@ -448,75 +517,6 @@ export const RightPanel = () => {
                     +
                   </button>
                 </div>
-              </div>
-            </section>
-
-            <section className="booth-section">
-              <div className="booth-section__title">Advised to have</div>
-              <p className="booth-section__intro">
-                Top-mounted lighting only: green markers sit on the <strong>upper edge</strong> of each frame (not on
-                the front graphic surface). Click a product, then pick a slot.
-              </p>
-              <div className="product-list product-list--compact">
-                {advisedProducts.map((product) => (
-                  <button
-                    key={product.id}
-                    className={`product-card ${draggedProductId === product.id ? 'selected' : ''}`}
-                    onClick={() => {
-                      if (draggedProductId === product.id) {
-                        endDrag();
-                      } else {
-                        startDrag(product.id);
-                      }
-                    }}
-                    title="Toggle placement; all compatible frames show slots"
-                  >
-                    <div className="product-card-content">
-                      <div className="product-price-badge">{product.priceEur.toFixed(0)} EUR</div>
-                      <ProductPreview3D productId={product.id} />
-                      <div>
-                        <div className="product-name">{product.name}</div>
-                        <div className="product-meta">
-                          {product.dimensions.width}×{product.dimensions.height}×{product.dimensions.depth} cm
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="booth-section">
-              <div className="booth-section__title">Nice to have</div>
-              <p className="booth-section__intro">
-                Shelves, displays, brochure holders. Pick a product, then a green slot on a compatible frame.
-              </p>
-              <div className="product-list product-list--compact">
-                {niceProducts.map((product) => (
-                  <button
-                    key={product.id}
-                    className={`product-card ${draggedProductId === product.id ? 'selected' : ''}`}
-                    onClick={() => {
-                      if (draggedProductId === product.id) {
-                        endDrag();
-                      } else {
-                        startDrag(product.id);
-                      }
-                    }}
-                    title="Toggle placement; green slots appear on all compatible frames"
-                  >
-                    <div className="product-card-content">
-                      <div className="product-price-badge">{product.priceEur.toFixed(0)} EUR</div>
-                      <ProductPreview3D productId={product.id} />
-                      <div>
-                        <div className="product-name">{product.name}</div>
-                        <div className="product-meta">
-                          {product.dimensions.width}×{product.dimensions.height}×{product.dimensions.depth} cm
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
               </div>
             </section>
 

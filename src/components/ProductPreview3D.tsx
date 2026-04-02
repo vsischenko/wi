@@ -75,10 +75,14 @@ const PreviewMesh = ({ productId }: Props) => {
 
 export const ProductPreview3D = ({ productId }: Props) => {
   const product = PRODUCT_BY_ID[productId];
-  const maxSpan = Math.max(product.dimensions.width, product.dimensions.depth, 40);
-  const cameraDistance = Math.max(250, maxSpan * 1.45); // ~2.5m baseline
-  const cameraY = Math.max(180, product.dimensions.height * 1.05);
-  const targetY = Math.max(35, product.dimensions.height * 0.35);
+  const maxSpan = Math.max(product.dimensions.width, product.dimensions.height, product.dimensions.depth, 40);
+  const isShelfOrHangable = product.category === 'shelf' || product.category === 'hangable';
+
+  // Product preview in catalog is a small "icon". For thin items (shelves, TVs),
+  // the original camera baseline made them look too small. We zoom in for those categories.
+  const cameraDistance = isShelfOrHangable ? Math.max(140, maxSpan * 1.15) : Math.max(250, maxSpan * 1.45);
+  const cameraY = isShelfOrHangable ? Math.max(80, maxSpan * 0.45) : Math.max(180, product.dimensions.height * 1.05);
+  const targetY = isShelfOrHangable ? Math.max(25, product.dimensions.height * 0.45) : Math.max(35, product.dimensions.height * 0.35);
 
   return (
     <div className="product-preview-3d">
