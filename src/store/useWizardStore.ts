@@ -318,6 +318,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     if (!obj) return;
     if (!attachesToFrameSlot(obj.productId) && state.currentStep !== 1) return;
     if (attachesToFrameSlot(obj.productId) && state.currentStep !== 2) return;
+    if (getFrameAttachMode(obj.productId) === 'top-edge') return;
 
     const { x: sx, z: sz } = snappedXZ(x, z);
     const snapped =

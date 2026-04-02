@@ -202,7 +202,9 @@ export const SharedScene = ({
             }
             selectObject(object.instanceId);
             const isLocked = currentStep !== 1 && PRODUCT_BY_ID[object.productId].step === 1;
-            if (!isLocked) {
+            const topEdgeOnly =
+              !!object.attachedToFrameId && getFrameAttachMode(object.productId) === 'top-edge';
+            if (!isLocked && !topEdgeOnly) {
               setDraggingObjectId(object.instanceId);
               onObjectDragStateChange?.(true);
               event.target.setPointerCapture?.(event.pointerId);

@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+node scripts/stamp-push.mjs
+git add src/buildUserStamp.ts
+if ! git diff --cached --quiet; then
+  git commit --amend --no-edit --no-verify
+fi
