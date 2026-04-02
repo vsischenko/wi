@@ -308,6 +308,10 @@ body,
   min-height: 0;
 }
 
+.booth-step > .booth-section {
+  flex-shrink: 0;
+}
+
 .booth-section {
   border: 1px solid #e0e6ed;
   border-radius: 8px;
