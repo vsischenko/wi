@@ -262,10 +262,6 @@ export const EstimateWidgetOverlay = () => {
           <div className="estimate-overlay__title">
             Estimate <span className="estimate-overlay__title-muted">— wizard prototype — [OPP-2026-0042]</span>
           </div>
-          <select className="estimate-overlay__variant-selector" defaultValue="variant-1">
-            <option value="variant-1">Variant 1 — V1 · 1.1</option>
-          </select>
-          <div className="estimate-overlay__status">Project status: QUOTE READY</div>
           <button
             type="button"
             className={`estimate-overlay__details-toggle${compactView ? ' active' : ''}`}
@@ -275,6 +271,10 @@ export const EstimateWidgetOverlay = () => {
           >
             Details
           </button>
+          <select className="estimate-overlay__variant-selector" defaultValue="variant-1">
+            <option value="variant-1">Variant 1 — V1 · 1.1</option>
+          </select>
+          <div className="estimate-overlay__status">Project status: QUOTE READY</div>
           <button type="button" className="estimate-overlay__close" onClick={() => setOpen(false)}>
             ✕ Close
           </button>
