@@ -1,7 +1,7 @@
 import { Edges, useTexture } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { Fragment, useMemo, useRef } from 'react';
-import { ClampToEdgeWrapping, SRGBColorSpace } from 'three';
+import { ClampToEdgeWrapping, Object3D, SRGBColorSpace } from 'three';
 import type { Mesh } from 'three';
 import { PRODUCT_BY_ID } from '../../data/products';
 import { useWizardStore } from '../../store/useWizardStore';
@@ -29,10 +29,19 @@ export const SceneObjectMesh = ({
   const isFrameCounter = product.category === 'frame-counter';
   const isShelf = product.category === 'shelf';
   const isHangable = product.category === 'hangable';
+  const isMountedLight =
+    !!object.attachedToFrameId &&
+    (object.productId === 'light-led-strip-96' || object.productId === 'light-spot-mini');
   const isTvAnimated = ['tv-19', 'tv-96-16x9'].includes(object.productId);
   const isTvInstalled = isTvAnimated && !!object.attachedToFrameId;
   const tvMeshRef = useRef<Mesh>(null);
+  const lightTargetRef = useRef<Object3D>(null);
+  const lightSpotRef = useRef<import('three').SpotLight>(null);
   useFrame(({ clock }) => {
+    if (isMountedLight && lightSpotRef.current && lightTargetRef.current) {
+      lightSpotRef.current.target = lightTargetRef.current;
+      lightSpotRef.current.target.updateMatrixWorld();
+    }
     if (!isTvAnimated || !tvMeshRef.current) return;
     const m = tvMeshRef.current.material as import('three').MeshStandardMaterial;
     if (selected) {
@@ -89,6 +98,11 @@ export const SceneObjectMesh = ({
   const hasCounterUsb = object.options?.countertopUsb ?? true;
   const hasStorageDoor = object.options?.storageHasDoor ?? true;
   const accentSurfaceOffset = 0.35;
+  const lightBeamHeight = object.productId === 'light-led-strip-96' ? 115 : 95;
+  const lightBeamRadius = object.productId === 'light-led-strip-96' ? 46 : 34;
+  const spotAngle = object.productId === 'light-led-strip-96' ? 0.95 : 0.65;
+  const spotIntensity = object.productId === 'light-led-strip-96' ? 1.25 : 1.1;
+  const haloIntensity = object.productId === 'light-led-strip-96' ? 0.42 : 0.35;
 
   return (
     <group
@@ -284,6 +298,38 @@ export const SceneObjectMesh = ({
             </mesh>
           ))}
         </Fragment>
+      )}
+
+      {isMountedLight && (
+        <group>
+          <object3D ref={lightTargetRef} position={[0, -lightBeamHeight, 0]} />
+          <spotLight
+            ref={lightSpotRef}
+            position={[0, -product.dimensions.height / 2 + 1, 0]}
+            color="#FFF3C4"
+            intensity={spotIntensity}
+            angle={spotAngle}
+            penumbra={0.75}
+            distance={lightBeamHeight + 40}
+            decay={2}
+            castShadow={false}
+          />
+          <pointLight
+            position={[0, -product.dimensions.height / 2, 0]}
+            color="#FFE6A3"
+            intensity={haloIntensity}
+            distance={55}
+            decay={2}
+          />
+          <mesh
+            position={[0, -product.dimensions.height / 2 - lightBeamHeight * 0.46, 0]}
+            rotation={[Math.PI, 0, 0]}
+            raycast={() => null}
+          >
+            <coneGeometry args={[lightBeamRadius, lightBeamHeight, 26, 1, true]} />
+            <meshBasicMaterial color="#FFF3BF" transparent opacity={0.14} depthWrite={false} />
+          </mesh>
+        </group>
       )}
     </group>
   );
