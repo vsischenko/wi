@@ -188,9 +188,15 @@ export const SceneObjectMesh = ({
             {selected && <Edges color="#00E5FF" />}
           </mesh>
           {isTvAnimated && tvVideoTexture && (
-            <mesh position={[0, 0, product.dimensions.depth / 2 + 0.08]} renderOrder={3}>
+            <mesh position={[0, 0, product.dimensions.depth / 2 + 0.2]} renderOrder={3}>
               <planeGeometry args={[product.dimensions.width * 0.92, product.dimensions.height * 0.9]} />
-              <meshBasicMaterial map={tvVideoTexture} toneMapped={false} />
+              <meshBasicMaterial
+                map={tvVideoTexture}
+                toneMapped={false}
+                polygonOffset
+                polygonOffsetFactor={-2}
+                polygonOffsetUnits={-2}
+              />
             </mesh>
           )}
         </group>
