@@ -328,7 +328,11 @@ export const RightPanel = () => {
     });
   }, [frameGraphics, graphicsAssets, sceneObjects]);
 
-  const selectGraphicSurfaceFromPanel = (instanceId: string) => {
+  const selectGraphicSurfaceFromPanel = (instanceId: string, withCtrl: boolean) => {
+    if (withCtrl) {
+      toggleGraphicFrameSelection(instanceId);
+      return;
+    }
     clearGraphicFrameSelection();
     toggleGraphicFrameSelection(instanceId);
   };
@@ -862,7 +866,7 @@ export const RightPanel = () => {
         ) : (
           <div className="graphics-step-panel">
             <div className="graphics-step-help">
-              Products on scene with printable visuals. Click a visual below to highlight it in scene.
+              Products on scene with printable visuals. Click to select one; Ctrl+click to multi-select.
             </div>
             <div className="graphics-step-meta">Selected visual: {selectedGraphicFrameIds.length}</div>
             <div className="dressing-visual-list">
@@ -878,7 +882,9 @@ export const RightPanel = () => {
                       key={item.instanceId}
                       type="button"
                       className={`dressing-visual-item${active ? ' active' : ''}`}
-                      onClick={() => selectGraphicSurfaceFromPanel(item.instanceId)}
+                      onClick={(event) =>
+                        selectGraphicSurfaceFromPanel(item.instanceId, event.ctrlKey)
+                      }
                     >
                       <div className="dressing-visual-item__preview-wrap">
                         {item.previewUrl ? (
