@@ -1286,12 +1286,12 @@ body,
 }
 
 .estimate-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(250, 250, 250, 0.97);
   display: none;
   flex-direction: column;
-  z-index: 100;
+  z-index: 1000;
 }
 
 .estimate-overlay.open {
