@@ -211,8 +211,10 @@ body,
 
 .right-panel-content {
   flex: 1 1 0;
+  height: 0;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   gap: 10px;
