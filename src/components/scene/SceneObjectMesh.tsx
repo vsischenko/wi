@@ -30,6 +30,7 @@ export const SceneObjectMesh = ({
   const isShelf = product.category === 'shelf';
   const isHangable = product.category === 'hangable';
   const isTvAnimated = ['tv-19', 'tv-96-16x9'].includes(object.productId);
+  const isTvInstalled = isTvAnimated && !!object.attachedToFrameId;
   const tvMeshRef = useRef<Mesh>(null);
   useFrame(({ clock }) => {
     if (!isTvAnimated || !tvMeshRef.current) return;
@@ -39,8 +40,19 @@ export const SceneObjectMesh = ({
       m.emissiveIntensity = 0.22;
       return;
     }
-    m.emissive.set('#1565c0');
-    m.emissiveIntensity = 0.12 + Math.sin(clock.elapsedTime * 3) * 0.08;
+    // When TV is installed on a frame, simulate a "playing" screen animation.
+    // For non-installed TVs (if any), keep the emissive almost off.
+    if (isTvInstalled) {
+      const t = clock.elapsedTime;
+      const wave = 0.5 + 0.5 * Math.sin(t * 6.2); // slow-ish flicker
+      const flick = 0.5 + 0.5 * Math.sin(t * 18.0 + Math.sin(t * 2.1)); // sharper micro flicker
+      const intensity = 0.08 + wave * 0.12 + flick * 0.05;
+      m.emissive.set('#1565c0');
+      m.emissiveIntensity = intensity;
+    } else {
+      m.emissive.set('#000000');
+      m.emissiveIntensity = 0;
+    }
   });
   const isCounterLike = ['counter', 'frame-counter'].includes(product.category);
   const isStorageLike = ['storage', 'closet'].includes(product.category);
