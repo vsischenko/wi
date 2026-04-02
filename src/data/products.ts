@@ -167,6 +167,20 @@ export const PRODUCTS: Product[] = [
     attachableTo: ['frame-96', 'frame-counter-96'],
   },
   {
+    id: 'tv-96-16x9',
+    name: 'Display 96 (16:9)',
+    category: 'hangable',
+    step: 2,
+    boothCatalogGroup: 'nice',
+    // 16:9 -> height = width * 9 / 16 = 54
+    dimensions: { width: 96, height: 54, depth: 5 },
+    priceEur: 320,
+    weightKg: 8.5,
+    color: '#1a1a1a',
+    thumbnailUrl: '/thumbnails/shelf-96.svg',
+    attachableTo: ['frame-96', 'frame-counter-96'],
+  },
+  {
     id: 'brochure-pocket-a6',
     name: 'Brochure pocket (A6)',
     category: 'hangable',

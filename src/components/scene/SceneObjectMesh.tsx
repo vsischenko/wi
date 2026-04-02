@@ -29,10 +29,10 @@ export const SceneObjectMesh = ({
   const isFrameCounter = product.category === 'frame-counter';
   const isShelf = product.category === 'shelf';
   const isHangable = product.category === 'hangable';
-  const isTv19 = object.productId === 'tv-19';
+  const isTvAnimated = ['tv-19', 'tv-96-16x9'].includes(object.productId);
   const tvMeshRef = useRef<Mesh>(null);
   useFrame(({ clock }) => {
-    if (!isTv19 || !tvMeshRef.current) return;
+    if (!isTvAnimated || !tvMeshRef.current) return;
     const m = tvMeshRef.current.material as import('three').MeshStandardMaterial;
     if (selected) {
       m.emissive.set('#26C6DA');
@@ -97,14 +97,14 @@ export const SceneObjectMesh = ({
       }}
     >
       {!isArch ? (
-        <mesh ref={isTv19 ? tvMeshRef : undefined}>
+        <mesh ref={isTvAnimated ? tvMeshRef : undefined}>
           <boxGeometry args={[product.dimensions.width, product.dimensions.height, product.dimensions.depth]} />
           <meshStandardMaterial
             color={isShelf ? shelfColorHex : isHangable ? product.color : product.color}
             transparent
             opacity={opacity}
-            emissive={selected ? '#26C6DA' : isTv19 ? '#1565c0' : '#000000'}
-            emissiveIntensity={selected ? 0.22 : isTv19 ? 0.15 : 0}
+            emissive={selected ? '#26C6DA' : isTvAnimated ? '#1565c0' : '#000000'}
+            emissiveIntensity={selected ? 0.22 : isTvAnimated ? 0.15 : 0}
           />
           {selected && <Edges color="#00E5FF" />}
         </mesh>
