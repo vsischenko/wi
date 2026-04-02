@@ -1,7 +1,12 @@
 import { create } from 'zustand';
 import { PRODUCTS, PRODUCT_BY_ID } from '../data/products';
-import type { BoothLegFootKind, GraphicCrop, SceneObject, WizardStep } from '../types';
+import type { BoothLegFootKind, FrameAttachMode, GraphicCrop, SceneObject, WizardStep } from '../types';
 import { countStructuralFramesForBooth } from '../utils/booth';
+import {
+  computeTopEdgeWorldPosition,
+  getFrameAttachMode,
+  getOccupiedTopEdgeRailIndices,
+} from '../utils/frameAttach';
 import { GHOST_SHELF_POSITIONS } from '../utils/constants';
 import { applyEdgeSnap, getFootprint, intersectsXZ, isWithinBounds, snappedXZ } from '../utils/geometry';
 
@@ -56,7 +61,7 @@ interface WizardState {
   redo: () => void;
   togglePortMode: () => void;
   getFrame96Objects: () => SceneObject[];
-  getOccupiedSlots: (frameId: string) => number[];
+  getOccupiedSlots: (frameId: string, attachMode?: FrameAttachMode) => number[];
   canPlaceAt: (
     productId: string,
     x: number,
@@ -195,6 +200,9 @@ const getAttachedShelfPlacement = (
   const frameProduct = PRODUCT_BY_ID[frame.productId];
   const shelfProduct = PRODUCT_BY_ID[shelf.productId];
   const slotIndex = shelf.shelfSlotIndex ?? 0;
+  if (getFrameAttachMode(shelf.productId) === 'top-edge') {
+    return computeTopEdgeWorldPosition(frame, frameProduct, shelfProduct, slotIndex);
+  }
   const y = GHOST_SHELF_POSITIONS[slotIndex] ?? shelf.position[1];
   const frameFrontOffset = frameProduct.dimensions.depth / 2 + shelfProduct.dimensions.depth / 2;
   const x = frame.position[0] + Math.sin(frame.rotation) * frameFrontOffset;
@@ -258,19 +266,39 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     const frame = get().sceneObjects.find((obj) => obj.instanceId === frameId);
     const slotProduct = PRODUCT_BY_ID[productId];
     if (!frame || !slotProduct || !attachesToFrameSlot(productId)) return;
-    const occupied = get().getOccupiedSlots(frameId);
-    if (occupied.includes(slotIndex)) return;
     const frameProduct = PRODUCT_BY_ID[frame.productId];
     if (!slotProduct.attachableTo?.includes(frame.productId)) return;
 
-    const frameFrontOffset = frameProduct.dimensions.depth / 2 + slotProduct.dimensions.depth / 2;
-    const x = frame.position[0] + Math.sin(frame.rotation) * frameFrontOffset;
-    const z = frame.position[2] + Math.cos(frame.rotation) * frameFrontOffset;
+    const attachMode = getFrameAttachMode(productId);
+    const sceneNow = get().sceneObjects;
+
+    if (attachMode === 'top-edge') {
+      const railOcc = getOccupiedTopEdgeRailIndices(frameId, sceneNow);
+      if (slotProduct.topEdgeSpan === 'full') {
+        if (railOcc.length > 0) return;
+      } else if (railOcc.includes(slotIndex)) {
+        return;
+      }
+    } else {
+      const occupied = get().getOccupiedSlots(frameId, 'front-face');
+      if (occupied.includes(slotIndex)) return;
+    }
+
+    let position: [number, number, number];
+    if (attachMode === 'top-edge') {
+      const p = computeTopEdgeWorldPosition(frame, frameProduct, slotProduct, slotIndex);
+      position = [p.x, p.y, p.z];
+    } else {
+      const frameFrontOffset = frameProduct.dimensions.depth / 2 + slotProduct.dimensions.depth / 2;
+      const x = frame.position[0] + Math.sin(frame.rotation) * frameFrontOffset;
+      const z = frame.position[2] + Math.cos(frame.rotation) * frameFrontOffset;
+      position = [x, GHOST_SHELF_POSITIONS[slotIndex], z];
+    }
 
     const next: SceneObject = {
       instanceId: uniqueId(),
       productId,
-      position: [x, GHOST_SHELF_POSITIONS[slotIndex], z],
+      position,
       rotation: frame.rotation,
       attachedToFrameId: frameId,
       shelfSlotIndex: slotIndex,
@@ -702,10 +730,17 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   getFrame96Objects: () =>
     get().sceneObjects.filter((obj) => ['frame-96', 'frame-counter-96'].includes(obj.productId)),
 
-  getOccupiedSlots: (frameId) =>
-    get()
-      .sceneObjects.filter((obj) => obj.attachedToFrameId === frameId && typeof obj.shelfSlotIndex === 'number')
-      .map((obj) => obj.shelfSlotIndex as number),
+  getOccupiedSlots: (frameId, attachMode: FrameAttachMode = 'front-face') => {
+    if (attachMode === 'top-edge') {
+      return getOccupiedTopEdgeRailIndices(frameId, get().sceneObjects);
+    }
+    return get()
+      .sceneObjects.filter(
+        (obj) => obj.attachedToFrameId === frameId && typeof obj.shelfSlotIndex === 'number',
+      )
+      .filter((obj) => getFrameAttachMode(obj.productId) === 'front-face')
+      .map((obj) => obj.shelfSlotIndex as number);
+  },
 
   canPlaceAt: (productId, x, z, rotation, excludeId) => {
     const product = PRODUCT_BY_ID[productId];

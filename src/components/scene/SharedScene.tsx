@@ -1,6 +1,7 @@
 import { Grid, Line } from '@react-three/drei';
 import { useMemo, useState } from 'react';
 import { isFrameSlotProductId, PRODUCT_BY_ID } from '../../data/products';
+import { computeTopEdgeWorldPosition, getFrameAttachMode } from '../../utils/frameAttach';
 import { useWizardStore } from '../../store/useWizardStore';
 import { GHOST_SHELF_POSITIONS, SCENE_DEPTH, SCENE_WIDTH } from '../../utils/constants';
 import { snappedXZ } from '../../utils/geometry';
@@ -247,10 +248,51 @@ export const SharedScene = ({
           .filter((frame) => PRODUCT_BY_ID[draggedProductId].attachableTo?.includes(frame.productId))
           .flatMap((frame) => {
             const frameProduct = PRODUCT_BY_ID[frame.productId];
-            const occupied = getOccupiedSlots(frame.instanceId);
+            const dragProduct = PRODUCT_BY_ID[draggedProductId];
+            const attachMode = getFrameAttachMode(draggedProductId);
+
+            if (attachMode === 'top-edge') {
+              const n = dragProduct.topEdgeSlotCount ?? 3;
+              const railOcc = getOccupiedSlots(frame.instanceId, 'top-edge');
+              return Array.from({ length: n }, (_, slotIndex) => {
+                const pos = computeTopEdgeWorldPosition(frame, frameProduct, dragProduct, slotIndex);
+                const slotTaken =
+                  dragProduct.topEdgeSpan === 'full' ? railOcc.length > 0 : railOcc.includes(slotIndex);
+                const slotDepth = dragProduct.dimensions.depth;
+                const gw =
+                  dragProduct.topEdgeSpan === 'full'
+                    ? frameProduct.dimensions.width * 0.92
+                    : Math.max(12, dragProduct.dimensions.width * 1.3);
+                const gh =
+                  dragProduct.topEdgeSpan === 'full' ? 5 : Math.max(8, dragProduct.dimensions.height * 1.15);
+                const gd = Math.max(slotDepth + 1, dragProduct.dimensions.depth * 1.1);
+                return (
+                  <mesh
+                    key={`${frame.instanceId}-top-${slotIndex}`}
+                    position={[pos.x, pos.y, pos.z]}
+                    rotation={[0, pos.rotation, 0]}
+                    onPointerDown={(e) => {
+                      if (interactionDisabled) return;
+                      e.stopPropagation();
+                      if (slotTaken) return;
+                      addShelfToFrame(draggedProductId, frame.instanceId, slotIndex);
+                    }}
+                  >
+                    <boxGeometry args={[gw, gh, gd]} />
+                    <meshStandardMaterial
+                      color={slotTaken ? '#f44336' : '#4CAF50'}
+                      transparent
+                      opacity={slotTaken ? 0.35 : 0.28}
+                    />
+                  </mesh>
+                );
+              });
+            }
+
+            const occupied = getOccupiedSlots(frame.instanceId, 'front-face');
             return GHOST_SHELF_POSITIONS.map((slotY, slotIndex) => {
               const slotTaken = occupied.includes(slotIndex);
-              const slotDepth = PRODUCT_BY_ID[draggedProductId].dimensions.depth;
+              const slotDepth = dragProduct.dimensions.depth;
               const ghostZ = frameProduct.dimensions.depth / 2 + slotDepth / 2 + 0.5;
               return (
                 <mesh

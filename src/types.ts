@@ -15,6 +15,8 @@ export type BoothCatalogGroup = 'advised' | 'nice';
 
 export type BoothLegFootKind = 'pad' | 'single' | 'double';
 
+export type FrameAttachMode = 'front-face' | 'top-edge';
+
 export interface Product {
   id: string;
   name: string;
@@ -31,6 +33,12 @@ export interface Product {
   thumbnailUrl: string;
   attachableTo?: string[];
   description?: string;
+  /** Hangable: shelves/front vs top rail only (e.g. lights) */
+  frameAttachMode?: FrameAttachMode;
+  /** For top-edge: horizontal slot count along frame width */
+  topEdgeSlotCount?: number;
+  /** Top-edge: full-width strip blocks all rail slots on that frame */
+  topEdgeSpan?: 'single' | 'full';
 }
 
 export interface SceneObject {

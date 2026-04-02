@@ -195,7 +195,8 @@ export const RightPanel = () => {
     [sceneObjects, selectedFrameObject],
   );
   const selectedFrameOccupiedSlots = useMemo(
-    () => (selectedFrameObject ? getOccupiedSlots(selectedFrameObject.instanceId) : []),
+    () =>
+      selectedFrameObject ? getOccupiedSlots(selectedFrameObject.instanceId, 'front-face') : [],
     [getOccupiedSlots, selectedFrameObject],
   );
   const selectedShelfForFrame = useMemo(() => {
@@ -442,7 +443,10 @@ export const RightPanel = () => {
 
             <section className="booth-section">
               <div className="booth-section__title">Advised to have</div>
-              <p className="booth-section__intro">Top-mounted lighting. Click a product, then a green slot on a frame.</p>
+              <p className="booth-section__intro">
+                Top-mounted lighting only: green markers sit on the <strong>upper edge</strong> of each frame (not on
+                the front graphic surface). Click a product, then pick a slot.
+              </p>
               <div className="product-list product-list--compact">
                 {advisedProducts.map((product) => (
                   <button
