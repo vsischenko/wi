@@ -36,6 +36,7 @@ export const SharedScene = ({
   const rotateObject = useWizardStore((s) => s.rotateObject);
   const addObject = useWizardStore((s) => s.addObject);
   const addShelfToFrame = useWizardStore((s) => s.addShelfToFrame);
+  const endDrag = useWizardStore((s) => s.endDrag);
   const getFrame96Objects = useWizardStore((s) => s.getFrame96Objects);
   const getOccupiedSlots = useWizardStore((s) => s.getOccupiedSlots);
   const [draggingObjectId, setDraggingObjectId] = useState<string | null>(null);
@@ -222,7 +223,9 @@ export const SharedScene = ({
             event.nativeEvent?.preventDefault();
             if (interactionDisabled) return;
             if (event.ctrlKey) return;
-            if (draggedProductId) return;
+            if (useWizardStore.getState().draggedProductId) {
+              endDrag();
+            }
             if (currentStep === 1) {
               if (selectedObjectId === object.instanceId) {
                 rotateObject(object.instanceId);
