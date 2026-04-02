@@ -303,11 +303,20 @@ export const SharedScene = ({
             return GHOST_SHELF_POSITIONS.map((slotY, slotIndex) => {
               const slotTaken = occupied.includes(slotIndex);
               const slotDepth = dragProduct.dimensions.depth;
-              const ghostZ = frameProduct.dimensions.depth / 2 + slotDepth / 2 + 0.5;
+              const frameFrontOffset =
+                frameProduct.dimensions.depth / 2 + dragProduct.dimensions.depth / 2;
+              // Match the real placement computed in `addShelfToFrame` for `front-face`.
+              const x = frame.position[0] + Math.sin(frame.rotation) * frameFrontOffset;
+              const z = frame.position[2] + Math.cos(frame.rotation) * frameFrontOffset;
+
+              const gw = dragProduct.dimensions.width;
+              const gh = dragProduct.dimensions.height;
+              // Slightly inflate depth for better visibility.
+              const gd = Math.max(slotDepth * 1.1, slotDepth + 1);
               return (
                 <mesh
                   key={`${frame.instanceId}-${slotIndex}`}
-                  position={[frame.position[0], slotY, frame.position[2]]}
+                  position={[x, slotY, z]}
                   rotation={[0, frame.rotation, 0]}
                   onPointerDown={(e) => {
                     if (interactionDisabled) return;
@@ -316,13 +325,12 @@ export const SharedScene = ({
                     addShelfToFrame(draggedProductId, frame.instanceId, slotIndex);
                   }}
                 >
-                  <boxGeometry args={[frameProduct.dimensions.width * 0.9, 2, slotDepth]} />
+                  <boxGeometry args={[gw, gh, gd]} />
                   <meshStandardMaterial
                     color={slotTaken ? '#f44336' : '#4CAF50'}
                     transparent
                     opacity={slotTaken ? 0.35 : 0.22}
                   />
-                  <group position={[0, 0, ghostZ]} />
                 </mesh>
               );
             });
