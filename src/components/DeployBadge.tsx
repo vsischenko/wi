@@ -19,14 +19,18 @@ const formatIsoAsGmt2 = (iso: string) => {
 
 export const DeployBadge = () => {
   const sha = __GIT_SHA_SHORT__;
-  const stampIso = DEPLOY_STAMP_ISO.length > 0 ? DEPLOY_STAMP_ISO : __BUILD_ISO__;
-  const stampGmt2 =
-    DEPLOY_STAMP_GMT2_LABEL.length > 0 ? DEPLOY_STAMP_GMT2_LABEL : formatIsoAsGmt2(__BUILD_ISO__);
+  /** Bundle build time (fresh on every `vite build`, including Vercel). */
+  const buildIso = __BUILD_ISO__;
+  const stampGmt2 = formatIsoAsGmt2(buildIso);
+  const pushStampExtra =
+    DEPLOY_STAMP_ISO.length > 0 && DEPLOY_STAMP_ISO !== buildIso
+      ? ` · pre-push stamp (repo file): ${DEPLOY_STAMP_ISO} → ${DEPLOY_STAMP_GMT2_LABEL}`
+      : '';
 
   const title =
     sha.length > 0
-      ? `Release ${__APP_VERSION_BASE__} · ${__APP_VERSION__} · push stamp ${stampIso} (UTC) → ${stampGmt2} · ${sha}`
-      : `Release ${__APP_VERSION_BASE__} · local · ${stampIso} (UTC) → ${stampGmt2}`;
+      ? `Release ${__APP_VERSION_BASE__} · ${__APP_VERSION__} · build ${buildIso} (UTC) → ${stampGmt2}${pushStampExtra} · ${sha}`
+      : `Release ${__APP_VERSION_BASE__} · local · build ${buildIso} (UTC) → ${stampGmt2}${pushStampExtra}`;
 
   return (
     <div className="deploy-badge" title={title}>

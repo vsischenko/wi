@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,10 +7,26 @@ import { defineConfig } from 'vite'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const pkg = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf8')) as { version: string }
-const gitShaShort =
-  typeof process.env.VERCEL_GIT_COMMIT_SHA === 'string' && process.env.VERCEL_GIT_COMMIT_SHA.length >= 7
-    ? process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7)
-    : ''
+
+function resolveGitShaShort(): string {
+  const fromEnv = [
+    process.env.VERCEL_GIT_COMMIT_SHA,
+    process.env.GITHUB_SHA,
+    process.env.CF_PAGES_COMMIT_SHA,
+    process.env.COMMIT_REF,
+  ].find((v) => typeof v === 'string' && v.length >= 7)
+  if (fromEnv) return fromEnv.slice(0, 7)
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      cwd: __dirname,
+      encoding: 'utf8',
+    }).trim()
+  } catch {
+    return ''
+  }
+}
+
+const gitShaShort = resolveGitShaShort()
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 const vercelBuildStamp = (() => {
