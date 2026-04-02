@@ -262,15 +262,6 @@ export const EstimateWidgetOverlay = () => {
           <div className="estimate-overlay__title">
             Estimate <span className="estimate-overlay__title-muted">— wizard prototype — [OPP-2026-0042]</span>
           </div>
-          <button
-            type="button"
-            className={`estimate-overlay__details-toggle${compactView ? ' active' : ''}`}
-            aria-pressed={compactView}
-            title="Pressed = collapsed, released = expanded"
-            onClick={() => setCompactView((v) => !v)}
-          >
-            Details
-          </button>
           <select className="estimate-overlay__variant-selector" defaultValue="variant-1">
             <option value="variant-1">Variant 1 — V1 · 1.1</option>
           </select>
@@ -282,7 +273,18 @@ export const EstimateWidgetOverlay = () => {
 
         <div className="estimate-overlay__body">
           <div className="estimate-overlay__table-wrap">
-            <div className="estimate-table-ui__major-title">Structural</div>
+            <div className="estimate-table-ui__major-head">
+              <div className="estimate-table-ui__major-title">Structural</div>
+              <button
+                type="button"
+                className={`estimate-overlay__details-toggle${compactView ? ' active' : ''}`}
+                aria-pressed={compactView}
+                title="Pressed = collapsed, released = expanded"
+                onClick={() => setCompactView((v) => !v)}
+              >
+                Details
+              </button>
+            </div>
             <table className="estimate-table-ui">
               <thead>
                 <tr>

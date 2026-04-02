@@ -1404,6 +1404,13 @@ body,
   color: #1b3b52;
 }
 
+.estimate-table-ui__major-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .estimate-table-ui__major-title--secondary {
   margin-top: 18px;
 }
