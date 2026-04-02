@@ -16,11 +16,22 @@ type Line = {
   kind: 'structure' | 'accessories' | 'graphics';
 };
 
+type FrameGroup = {
+  id: string;
+  frameName: string;
+  frameLine: Line;
+  mountedLines: Line[];
+  supportLines: Line[];
+  subtotalPrice: number;
+  subtotalWeight: number;
+};
+
 const fmtEur = (value: number) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
 
 const fmtKg = (value: number) => `${value.toFixed(1)} kg`;
 const fmtM2 = (value: number) => `${value.toFixed(2)} m2`;
+const GRAPHICS_RATE_EUR_PER_M2 = 23;
 
 export const EstimateWidgetOverlay = () => {
   const [open, setOpen] = useState(false);
@@ -33,57 +44,10 @@ export const EstimateWidgetOverlay = () => {
   const boothLegFootKind = useWizardStore((s) => s.boothLegFootKind);
 
   const data = useMemo(() => {
-    const qtyByProduct = new Map<string, number>();
     const structuralObjects = sceneObjects.filter((obj) => {
       const c = PRODUCT_BY_ID[obj.productId].category;
       return c === 'frame' || c === 'frame-counter' || c === 'arch';
     });
-    sceneObjects.forEach((obj) => {
-      qtyByProduct.set(obj.productId, (qtyByProduct.get(obj.productId) ?? 0) + 1);
-    });
-
-    const lines: Line[] = [...qtyByProduct.entries()].map(([productId, qty]) => {
-      const p = PRODUCT_BY_ID[productId];
-      const isAccessory = ['shelf', 'hangable'].includes(p.category);
-      return {
-        key: productId,
-        name: p.name,
-        dimensions: `${p.dimensions.width}×${p.dimensions.height}×${p.dimensions.depth} cm`,
-        qty,
-        unitPrice: p.priceEur,
-        totalPrice: p.priceEur * qty,
-        unitWeight: p.weightKg,
-        totalWeight: p.weightKg * qty,
-        kind: isAccessory ? 'accessories' : 'structure',
-      };
-    });
-
-    const graphicsAreaM2 = Object.keys(frameGraphics).reduce((sum, objectId) => {
-      const object = sceneObjects.find((obj) => obj.instanceId === objectId);
-      if (!object) return sum;
-      const surface = getGraphicSurfaceSizeCm(object.productId);
-      return sum + (surface.width * surface.height) / 10000;
-    }, 0);
-    const graphicsPrice = graphicsAreaM2 * 35;
-    if (graphicsAreaM2 > 0) {
-      lines.push({
-        key: 'graphics',
-        name: `Graphics print (${graphicsAreaM2.toFixed(2)} m2)`,
-        dimensions: '—',
-        qty: 1,
-        unitPrice: graphicsPrice,
-        totalPrice: graphicsPrice,
-        unitWeight: 0,
-        totalWeight: 0,
-        kind: 'graphics',
-      });
-    }
-
-    const structureLines = lines.filter((l) => l.kind === 'structure');
-    const accessoryLines = lines.filter((l) => l.kind === 'accessories');
-    const graphicsLines = lines.filter((l) => l.kind === 'graphics');
-    const totalPrice = lines.reduce((s, l) => s + l.totalPrice, 0);
-    const totalWeight = lines.reduce((s, l) => s + l.totalWeight, 0);
     const structuralCount = countStructuralFramesForBooth(sceneObjects);
     const recLegs = recommendedLegCount(structuralCount);
     const recStabilizers = recommendedStabilizerCount(structuralCount);
@@ -91,83 +55,160 @@ export const EstimateWidgetOverlay = () => {
     const effectiveStabilizers =
       boothStabilizerCountOverride === null ? recStabilizers : Math.max(0, boothStabilizerCountOverride);
 
-    // Distribute feet/stabilizers per structural object then aggregate by product.
+    // Deterministic frame order for stable naming and support distribution.
     const sortedStructural = structuralObjects
       .slice()
       .sort((a, b) => a.position[2] - b.position[2] || a.position[0] - b.position[0]);
-    const byProductLegs = new Map<string, number>();
-    const byProductStabilizers = new Map<string, number>();
+
+    const frame96Map: Record<string, string> = {};
+    sortedStructural
+      .filter((obj) => obj.productId === 'frame-96')
+      .forEach((obj, idx) => {
+        frame96Map[obj.instanceId] = `Frame 96_${idx + 1}`;
+      });
+    const getFrameName = (instanceId: string) => {
+      const obj = sceneObjects.find((it) => it.instanceId === instanceId);
+      if (!obj) return 'Unknown frame';
+      return frame96Map[instanceId] ?? PRODUCT_BY_ID[obj.productId].name;
+    };
+
+    // Distribute feet/stabilizers per structural instance.
+    const legsByFrame = new Map<string, number>();
+    const stabilizersByFrame = new Map<string, number>();
     const n = sortedStructural.length;
     const legBase = n > 0 ? Math.floor(effectiveLegs / n) : 0;
     const legRem = n > 0 ? effectiveLegs % n : 0;
     const stBase = n > 0 ? Math.floor(effectiveStabilizers / n) : 0;
     const stRem = n > 0 ? effectiveStabilizers % n : 0;
     sortedStructural.forEach((obj, idx) => {
-      byProductLegs.set(obj.productId, (byProductLegs.get(obj.productId) ?? 0) + legBase + (idx < legRem ? 1 : 0));
-      byProductStabilizers.set(
-        obj.productId,
-        (byProductStabilizers.get(obj.productId) ?? 0) + stBase + (idx < stRem ? 1 : 0),
-      );
+      legsByFrame.set(obj.instanceId, legBase + (idx < legRem ? 1 : 0));
+      stabilizersByFrame.set(obj.instanceId, stBase + (idx < stRem ? 1 : 0));
     });
 
+    const frameGroups: FrameGroup[] = sortedStructural.map((frame) => {
+      const frameProduct = PRODUCT_BY_ID[frame.productId];
+      const frameLine: Line = {
+        key: `${frame.instanceId}-base`,
+        name: frameProduct.name,
+        dimensions: `${frameProduct.dimensions.width}×${frameProduct.dimensions.height}×${frameProduct.dimensions.depth} cm`,
+        qty: 1,
+        unitPrice: frameProduct.priceEur,
+        totalPrice: frameProduct.priceEur,
+        unitWeight: frameProduct.weightKg,
+        totalWeight: frameProduct.weightKg,
+        kind: 'structure',
+      };
+
+      const attached = sceneObjects.filter((obj) => obj.attachedToFrameId === frame.instanceId);
+      const attachedQty = new Map<string, number>();
+      attached.forEach((obj) => {
+        attachedQty.set(obj.productId, (attachedQty.get(obj.productId) ?? 0) + 1);
+      });
+      const mountedLines: Line[] = [...attachedQty.entries()].map(([productId, qty]) => {
+        const p = PRODUCT_BY_ID[productId];
+        return {
+          key: `${frame.instanceId}-${productId}`,
+          name: p.name,
+          dimensions: `${p.dimensions.width}×${p.dimensions.height}×${p.dimensions.depth} cm`,
+          qty,
+          unitPrice: p.priceEur,
+          totalPrice: p.priceEur * qty,
+          unitWeight: p.weightKg,
+          totalWeight: p.weightKg * qty,
+          kind: 'accessories',
+        };
+      });
+
+      const supportLines: Line[] = [];
+      const legsQty = legsByFrame.get(frame.instanceId) ?? 0;
+      if (legsQty > 0) {
+        supportLines.push({
+          key: `${frame.instanceId}-legs`,
+          name: `Legs (${boothLegFootKind})`,
+          dimensions: '—',
+          qty: legsQty,
+          unitPrice: 0,
+          totalPrice: 0,
+          unitWeight: 0,
+          totalWeight: 0,
+          kind: 'accessories',
+        });
+      }
+      const stQty = stabilizersByFrame.get(frame.instanceId) ?? 0;
+      if (stQty > 0) {
+        supportLines.push({
+          key: `${frame.instanceId}-st`,
+          name: 'Frame stabilizer',
+          dimensions: '—',
+          qty: stQty,
+          unitPrice: 0,
+          totalPrice: 0,
+          unitWeight: 0,
+          totalWeight: 0,
+          kind: 'accessories',
+        });
+      }
+
+      const subtotalPrice =
+        frameLine.totalPrice + mountedLines.reduce((sum, line) => sum + line.totalPrice, 0);
+      const subtotalWeight =
+        frameLine.totalWeight + mountedLines.reduce((sum, line) => sum + line.totalWeight, 0);
+
+      return {
+        id: frame.instanceId,
+        frameName: getFrameName(frame.instanceId),
+        frameLine,
+        mountedLines,
+        supportLines,
+        subtotalPrice,
+        subtotalWeight,
+      };
+    });
+
+    const graphicsLines: Line[] = Object.keys(frameGraphics).flatMap((objectId) => {
+      const object = sceneObjects.find((obj) => obj.instanceId === objectId);
+      if (!object) return [];
+      const surface = getGraphicSurfaceSizeCm(object.productId);
+      const areaM2 = (surface.width * surface.height) / 10000;
+      return [
+        {
+          key: `graphics-${objectId}`,
+          name: `${getFrameName(objectId)} graphic print`,
+          dimensions: `${surface.width.toFixed(0)}×${surface.height.toFixed(0)} cm`,
+          qty: 1,
+          unitPrice: GRAPHICS_RATE_EUR_PER_M2,
+          totalPrice: areaM2 * GRAPHICS_RATE_EUR_PER_M2,
+          unitWeight: 0,
+          totalWeight: 0,
+          kind: 'graphics',
+        },
+      ];
+    });
+
+    const graphicsAreaM2 = graphicsLines.reduce(
+      (sum, line) => sum + line.totalPrice / GRAPHICS_RATE_EUR_PER_M2,
+      0,
+    );
+    const graphicsTotal = graphicsLines.reduce((sum, line) => sum + line.totalPrice, 0);
+    const structuralTotal = frameGroups.reduce((sum, group) => sum + group.subtotalPrice, 0);
+    const totalPrice = structuralTotal + graphicsTotal;
+    const totalWeight = frameGroups.reduce((sum, group) => sum + group.subtotalWeight, 0);
+
     return {
-      structureLines,
-      accessoryLines,
       graphicsLines,
+      frameGroups,
       totalPrice,
       totalWeight,
+      structuralTotal,
+      graphicsTotal,
       productsCount: sceneObjects.length,
       graphicsAreaM2,
-      byProductLegs,
-      byProductStabilizers,
       effectiveLegs,
       effectiveStabilizers,
       recLegs,
       recStabilizers,
     };
-  }, [frameGraphics, sceneObjects, boothLegCountOverride, boothStabilizerCountOverride]);
-
-  const productGroups = useMemo(() => {
-    const groups = [...data.structureLines, ...data.accessoryLines, ...data.graphicsLines].map((line) => {
-      const accessoryRows: Line[] = [];
-      if (line.kind === 'structure') {
-        const legs = data.byProductLegs.get(line.key) ?? 0;
-        const st = data.byProductStabilizers.get(line.key) ?? 0;
-        if (legs > 0) {
-          accessoryRows.push({
-            key: `${line.key}-legs`,
-            name: `Legs (${boothLegFootKind})`,
-            dimensions: '—',
-            qty: legs,
-            unitPrice: 0,
-            totalPrice: 0,
-            unitWeight: 0,
-            totalWeight: 0,
-            kind: 'accessories',
-          });
-        }
-        if (st > 0) {
-          accessoryRows.push({
-            key: `${line.key}-st`,
-            name: 'Frame stabilizer',
-            dimensions: '—',
-            qty: st,
-            unitPrice: 0,
-            totalPrice: 0,
-            unitWeight: 0,
-            totalWeight: 0,
-            kind: 'accessories',
-          });
-        }
-      }
-      return {
-        id: line.key,
-        line,
-        accessoryRows,
-      };
-    });
-    return groups;
-  }, [data, boothLegFootKind]);
+  }, [frameGraphics, sceneObjects, boothLegCountOverride, boothStabilizerCountOverride, boothLegFootKind]);
 
   const toggleGroup = (id: string) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
@@ -231,6 +272,7 @@ export const EstimateWidgetOverlay = () => {
 
         <div className="estimate-overlay__body">
           <div className="estimate-overlay__table-wrap">
+            <div className="estimate-table-ui__major-title">Structural</div>
             <table className="estimate-table-ui">
               <thead>
                 <tr>
@@ -244,43 +286,60 @@ export const EstimateWidgetOverlay = () => {
                 </tr>
               </thead>
               <tbody>
-                {productGroups.map((group) => {
+                {data.frameGroups.map((group) => {
                   const isOpen = expanded[group.id] ?? true;
-                  const sectionLabel =
-                    group.line.kind === 'structure' ? 'Structure' : group.line.kind === 'accessories' ? 'Accessories' : 'Graphics';
                   return (
                     <Fragment key={group.id}>
                       <tr key={`${group.id}-head`} className="estimate-table-ui__product" onClick={() => toggleGroup(group.id)}>
                         <td className="estimate-table-ui__chev">{isOpen ? '▾' : '▸'}</td>
-                        <td className="estimate-table-ui__product-name">{group.line.name}</td>
-                        <td>{group.line.dimensions}</td>
-                        <td>{fmtKg(group.line.totalWeight)}</td>
-                        <td>{group.line.qty}</td>
-                        <td>{fmtEur(group.line.unitPrice)}</td>
-                        <td className="estimate-table-ui__price-total">{fmtEur(group.line.totalPrice)}</td>
+                        <td className="estimate-table-ui__product-name">{group.frameName}</td>
+                        <td>{group.frameLine.dimensions}</td>
+                        <td>{fmtKg(group.subtotalWeight)}</td>
+                        <td>1</td>
+                        <td>{fmtEur(group.frameLine.unitPrice)}</td>
+                        <td className="estimate-table-ui__price-total">{fmtEur(group.subtotalPrice)}</td>
                       </tr>
                       {isOpen && (
                         <>
                           <tr className="estimate-table-ui__section">
                             <td></td>
-                            <td colSpan={6}>{sectionLabel}</td>
+                            <td colSpan={6}>Structure base</td>
                           </tr>
                           <tr className="estimate-table-ui__article">
                             <td></td>
-                            <td>{group.line.name}</td>
-                            <td>{group.line.dimensions}</td>
-                            <td>{fmtKg(group.line.totalWeight)}</td>
-                            <td>{group.line.qty}</td>
-                            <td>{fmtEur(group.line.unitPrice)}</td>
-                            <td>{fmtEur(group.line.totalPrice)}</td>
+                            <td>{group.frameLine.name}</td>
+                            <td>{group.frameLine.dimensions}</td>
+                            <td>{fmtKg(group.frameLine.totalWeight)}</td>
+                            <td>{group.frameLine.qty}</td>
+                            <td>{fmtEur(group.frameLine.unitPrice)}</td>
+                            <td>{fmtEur(group.frameLine.totalPrice)}</td>
                           </tr>
-                          {group.accessoryRows.length > 0 && (
+                          {group.mountedLines.length > 0 && (
                             <>
                               <tr className="estimate-table-ui__section">
                                 <td></td>
-                                <td colSpan={6}>Accessories</td>
+                                <td colSpan={6}>Mounted on this frame</td>
                               </tr>
-                              {group.accessoryRows.map((row) => (
+                              {group.mountedLines.map((row) => (
+                                <tr className="estimate-table-ui__article" key={row.key}>
+                                  <td></td>
+                                  <td>{row.name}</td>
+                                  <td>{row.dimensions}</td>
+                                  <td>{fmtKg(row.totalWeight)}</td>
+                                  <td>{row.qty}</td>
+                                  <td>{row.unitPrice > 0 ? fmtEur(row.unitPrice) : '—'}</td>
+                                  <td>{row.totalPrice > 0 ? fmtEur(row.totalPrice) : '—'}</td>
+                                </tr>
+                              ))}
+                            </>
+                          )}
+                          {group.supportLines.length > 0 && (
+                            <>
+                              <tr className="estimate-table-ui__section">
+                                <td></td>
+                                <td colSpan={6}>Support accessories</td>
+                              </tr>
+                              {group.supportLines.map((row) => (
                                 <tr className="estimate-table-ui__article" key={row.key}>
                                   <td></td>
                                   <td>{row.name}</td>
@@ -294,14 +353,60 @@ export const EstimateWidgetOverlay = () => {
                             </>
                           )}
                           <tr className="estimate-table-ui__subtotal">
-                            <td colSpan={6}>Product subtotal</td>
-                            <td>{fmtEur(group.line.totalPrice)}</td>
+                            <td colSpan={6}>Frame subtotal</td>
+                            <td>{fmtEur(group.subtotalPrice)}</td>
                           </tr>
                         </>
                       )}
                     </Fragment>
                   );
                 })}
+                <tr className="estimate-table-ui__subtotal">
+                  <td colSpan={6}>Structural subtotal</td>
+                  <td>{fmtEur(data.structuralTotal)}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div className="estimate-table-ui__major-title estimate-table-ui__major-title--secondary">Graphics</div>
+            <table className="estimate-table-ui">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Graphic panel</th>
+                  <th>Panel size</th>
+                  <th>Area</th>
+                  <th>Qty</th>
+                  <th>Rate</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.graphicsLines.length === 0 ? (
+                  <tr className="estimate-table-ui__article">
+                    <td></td>
+                    <td colSpan={6}>No graphics selected yet.</td>
+                  </tr>
+                ) : (
+                  data.graphicsLines.map((line) => {
+                    const areaM2 = line.totalPrice / GRAPHICS_RATE_EUR_PER_M2;
+                    return (
+                      <tr className="estimate-table-ui__article" key={line.key}>
+                        <td></td>
+                        <td>{line.name}</td>
+                        <td>{line.dimensions}</td>
+                        <td>{fmtM2(areaM2)}</td>
+                        <td>{line.qty}</td>
+                        <td>{fmtEur(GRAPHICS_RATE_EUR_PER_M2)} / m2</td>
+                        <td>{fmtEur(line.totalPrice)}</td>
+                      </tr>
+                    );
+                  })
+                )}
+                <tr className="estimate-table-ui__subtotal">
+                  <td colSpan={6}>Graphics subtotal ({fmtM2(data.graphicsAreaM2)})</td>
+                  <td>{fmtEur(data.graphicsTotal)}</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -310,6 +415,14 @@ export const EstimateWidgetOverlay = () => {
             <div className="estimate-overlay__pane-strong">Gold</div>
             <div className="estimate-overlay__pane-title">Customer country</div>
             <div className="estimate-overlay__pane-strong">France · EUR</div>
+            <div className="estimate-overlay__summary-row">
+              <span>Structural</span>
+              <strong>{fmtEur(data.structuralTotal)}</strong>
+            </div>
+            <div className="estimate-overlay__summary-row">
+              <span>Graphics ({fmtM2(data.graphicsAreaM2)})</span>
+              <strong>{fmtEur(data.graphicsTotal)}</strong>
+            </div>
             <div className="estimate-overlay__summary-row">
               <span>Total</span>
               <strong>{fmtEur(data.totalPrice)}</strong>
