@@ -5,6 +5,7 @@ import type { OrbitControls as OrbitControlsType } from 'three-stdlib';
 import type { PerspectiveCamera as PerspectiveCameraType } from 'three';
 import { useWizardStore } from '../../store/useWizardStore';
 import { getSceneBounds } from '../../utils/sceneBounds';
+import { EstimateWidgetOverlay } from '../EstimateWidgetOverlay';
 import { SharedScene } from './SharedScene';
 
 export const View3DCanvas = () => {
@@ -97,6 +98,7 @@ export const View3DCanvas = () => {
         />
         <SharedScene onObjectDragStateChange={setObjectDragging} />
       </Canvas>
+      <EstimateWidgetOverlay />
     </div>
   );
 };
